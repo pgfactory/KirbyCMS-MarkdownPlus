@@ -1,0 +1,90 @@
+/* === Tables ================= */
+.mdp-table-wrapper .mdp-button {
+    margin-bottom: 3px;
+}
+.mdp-table {
+    border-collapse: collapse;
+}
+.mdp-table tr {
+    vertical-align: top;
+}
+.mdp-table td > p, .mdp-table th > p {
+    padding: 0;
+    margin: 0;
+}
+.mdp-table td, .mdp-table th {
+    padding: 0.5em 0.6em 0.2em 0.6em;
+    border: 1px solid var(--mdp-table-border-color, #ddd);
+    vertical-align: top;
+}
+.mdp-table thead th {
+    background: var(--mdp-table-header-bg, #eee);
+}
+.mdp-table tfoot td {
+    background: var(--mdp-table-footer-bg, #eee);
+}
+
+
+/* === Tabulators ========= */
+.mdp-tabulator-wrapper > span {
+    display: inline-block;
+    line-height: 1.3em;
+    vertical-align: top;
+}
+
+/* === Icons ============== */
+/*
+ * Variables:
+ *  --mdp-icon-size
+ *  --mdp-icon-angle
+ */
+
+/*body {*/
+/*  --mdp-icon-size: 3.0em;*/
+/*  --mdp-icon-angle: 0deg;*/
+/*  font-size: 3em;*/
+/*}*/
+/*.mdp-icon { background: yellow;}*/
+/*.mdp-icon > * { background: #eeffee88;}*/
+
+
+/*.mdp-link-icon,*/
+.mdp-icon {
+  position: relative;
+  display: inline-block;
+  width: var(--mdp-icon-size, 1em);
+  height: var(--mdp-icon-size, 1em);
+  transform: translateY(0.12em);
+}
+.mdp-icon > * {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: var(--mdp-icon-size, 1em);
+  height: var(--mdp-icon-size, 1em);
+  transform: rotate(var(--mdp-icon-angle, 0));
+  transform-origin: center;
+}
+
+/* list of icons, i.e. output of ListIcons():
+.mdp-icon-row.mdp-icon-row {
+  display: inline-block;
+  margin-right: 2em;
+}
+.mdp-icon-row.mdp-icon-row span {
+  display: inline-block;
+}
+
+.mdp-icon-row.mdp-icon-row .mdp-icon-label {
+  width: 12em;
+}
+
+.mdp-icon {
+  color: red;
+}
+
+.mdp-icon-sample {
+  color: #bbb;
+}
+
+*/

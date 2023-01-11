@@ -193,6 +193,8 @@ class MdPlusHelper
         $literal = $inline = 0;
         $attr = [];
 
+        $str = str_replace('&lt;', '<', $str);
+
         // catch quoted elements:
         if (preg_match_all('/(?<!=) (["\']) (.*?) \1/x', $str, $m)) {
             foreach ($m[2] as $i => $t) {

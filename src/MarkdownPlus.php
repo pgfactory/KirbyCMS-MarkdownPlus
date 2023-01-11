@@ -23,6 +23,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
     private static int $tabulatorInx    = 1;
 
     private string $divblockChars;
+    private bool $paragraphContext;
     private $inlineTags = ',a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,'.
             'map,object,output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,';
     // 'skip' is a pseudo tag used by MarkdownPlus.
@@ -43,14 +44,15 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
      * @return string
      * @throws Exception
      */
-    public function compile(string $str):string
+    public function compile(string $str, bool $omitPWrapperTag = false):string
     {
         if (!$str) {
             return '';
         }
+        $this->paragraphContext = false;
         $str = $this->preprocess($str);
         $html = parent::parse($str);
-        return $this->postprocess($html);
+        return $this->postprocess($html, $omitPWrapperTag);
     } // compile
 
 
@@ -60,14 +62,15 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
      * @return string
      * @throws Exception
      */
-    public function compileParagraph(string $str):string
+    public function compileParagraph(string $str, bool $omitPWrapperTag = false):string
     {
         if (!$str) {
             return '';
         }
+        $this->paragraphContext = true;
         $str = $this->preprocess($str);
         $html = parent::parseParagraph($str);
-        $html = $this->postprocess($html);
+        $html = $this->postprocess($html, $omitPWrapperTag);
 
         return $html;
     } // compile
@@ -217,11 +220,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
             $out .= "\t  <thead>\n\t    <tr>\n";
             for ($col = 0; $col < $nCols; $col++) {
                 $cell = isset($table[0][$col]) ? $table[0][$col] : '';
-                $cell = self::compileParagraph(trim($cell));
-                $cell = trim($cell);
-                if (preg_match('|^<p>(.*)</p>$|', $cell, $m)) {
-                    $cell = $m[1];
-                }
+                $cell = self::compileParagraph($cell, true);
                 $out .= "\t\t\t<th class='mdp-col-".($col+1)."'>$cell</th>\n";
             }
             $out .= "\t    </tr>\n\t  </thead>\n";
@@ -237,9 +236,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
                     $colspan++;
                     continue;
                 } elseif ($cell) {
-                    $cell = self::compile(trim($cell));
-                    $cell = preg_replace('|^<p>|', '', $cell);
-                    $cell = preg_replace('|</p>$|', '', $cell);
+                    $cell = self::compile($cell, true);
                 }
                 $colspanAttr = '';
                 if ($colspan > 1) {
@@ -355,7 +352,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
 
         } elseif ($attrs['inline']){
             $content = $this->compileEmbeddedDivBlock($content);
-            $block['content'][0] = self::compileParagraph($content); //ToDo: compile?
+            $block['content'][0] = self::compileParagraph($content, true);
 
         } else {
             $block['content'][0] = MdPlusHelper::shieldStr($content, true);
@@ -385,9 +382,9 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
             } else {
                 if (substr($line, 0, $l) === $fence) {
                     if ($attrs['inline']??false) {
-                        $html = self::compileParagraph($block); //ToDo: compile?
+                        $html = self::compileParagraph($block, true);
                     } else {
-                        $html = self::compile($block);
+                        $html = self::compile($block, true);
                     }
                     $tag = $attrs['tag'] ?: 'div';
                     $_tag = str_contains(MDPMD_SINGLETON_TAGS, $tag)? '': "</$tag>";
@@ -551,7 +548,9 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
     protected function identifyDefinitionList(string $line, array $lines, int $current): bool
     {
         // if next line starts with ': ', it's a dl:
-        if (isset($lines[$current+1]) && strncmp($lines[$current+1], ': ', 2) === 0) {
+        if (isset($lines[$current+1]) && strncmp($lines[$current+1]??'', ': ', 2) === 0) {
+            return true;
+        } elseif (preg_match('/^\{:.*?}$/', $line) && strncmp($lines[$current+2]??'', ': ', 2) === 0) {
             return true;
         }
         return false;
@@ -568,19 +567,36 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
         $block = [
             'definitionList',
             'content' => [],
+            'attrs' => '',
         ];
+
+        if (preg_match('/^\{:(.*?)}$/', $lines[$current], $m)) {
+            $block['attrs'] = $m[1];
+            $current++;
+        }
 
         // consume all lines until 2 empty line
         $nEmptyLines = 0;
-        for($i = $current, $count = count($lines); $i < $count; $i++) {
-            if (!preg_match('/\S/', $lines[$i])) {  // empty line
-                if ($nEmptyLines++ > 0) {
-                    break;
+        $dt = -1;
+        for($i = $current, $count = count($lines); $i < $count-1; $i++) {
+            if (!$lines[$i]) {
+                if ($nEmptyLines++ < 1) {
+                    continue;
                 }
-            } else {
-                $nEmptyLines = 0;
+                break;
             }
-            $block['content'][] = $lines[$i];
+            if (($lines[$i][0] !== ':') && (($lines[$i+1][0]??' ') === ':')) {
+                $dt++;
+                $block['content'][$dt]['dt'] = $lines[$i++];
+                $block['content'][$dt]['dd'] = ltrim(substr($lines[$i],1));
+                while (($lines[$i+1][0]??' ') === ':') {
+                    $i++;
+                    $block['content'][$dt]['dd'] .= "\n".ltrim(substr($lines[$i],1));
+                }
+                $nEmptyLines = 0;
+            } else {
+                break;
+            }
         }
         return [$block, $i];
     } // consumeDefinitionList
@@ -591,31 +607,27 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
      */
     protected function renderDefinitionList(array $block): string
     {
-        $out = '';
-        $md = '';
-        foreach ($block['content'] as $line) {
-            if (!trim($line)) {                             // end of dd item reached
-                if ($md) {
-                    $html = self::compile($md); //ToDo: compile?
-//                    $html = self::compileParagraph($md); //ToDo: compile?
-                    $html = "\t\t\t".str_replace("\n", "\n\t\t\t", $html);
-                    $out .= "$html ";
-                    $md = '';
-                }
-                $out .= "\n\t\t</dd>\n";
-
-            } elseif (preg_match('/^: /', $line)) { // within dd block
-                $md .= substr($line, 2) . ' ';
-                if (preg_match('/\s\s$/', $md)) { // 2 blanks at end of line -> insert line break
-                    $md = rtrim($md) . "<br>\n";
-                }
-
-            } else {                                        // new dt block starts
-                $line = self::compileParagraph($line);
-                $out .= "\t\t<dt>$line</dt>\n\t\t<dd>\n";
-            }
+        $attrsStr = '';
+        if ($block['attrs']) {
+            $attrs = MdPlusHelper::parseInlineBlockArguments($block['attrs']);
+            $attrsStr = $attrs['htmlAttrs'];
         }
-        $out = "\t<dl>\n$out\t</dl>\n";
+        $out = '';
+        foreach ($block['content'] as $item) {
+            $dt = self::compileParagraph($item['dt'], true);
+            $out .= "\t<dt>$dt</dt>\n";
+
+            $dd = self::compile($item['dd'], true);
+            $out .= "\t<dd>$dd\t</dd>\n\n";
+        }
+        $out = $this->catchAndInjectTagAttributes($out);
+        $out = <<<EOT
+
+<dl$attrsStr>
+$out</dl>
+
+
+EOT;
         return $out;
     } // renderDefinitionList
 
@@ -667,6 +679,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
     /**
      * @param array $block
      * @return string
+     * @throws Exception
      */
     protected function renderOrderedList(array $block): string
     {
@@ -676,7 +689,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
             $start = " start='{$block['start']}'";
         }
         foreach ($block['content'] as $line) {
-                $line = self::compile($line);
+                $line = self::compile($line, true);
                 $line = trim($line);
                 $out .= "\t\t<li>$line</li>\n";
         }
@@ -1051,6 +1064,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
      */
     private function preprocess(string $str): string
     {
+        $str = trim($str);
         $str = MdPlusHelper::removeCStyleComments($str);
         $str = MdPlusHelper::zapFileEND($str);
 
@@ -1074,7 +1088,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
      * @param string $str
      * @return string
      */
-    private function postprocess(string $str): string
+    private function postprocess(string $str, bool $omitPWrapperTag = false): string
     {
         // lines that contain but a variable or macro (e.g. "<p>{{ lorem( help ) }}</p>") -> remove enclosing P-tags:
         $str = preg_replace('|<p> ({{ .*? }}) </p>|xms', "$1", $str);
@@ -1088,13 +1102,19 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
             $str = $this->smartypants($str);
         }
 
+        // remove outer <p> tags if requested:
+        if ($omitPWrapperTag) {
+            $str = preg_replace('|^ (\s*) <p> ( .* ) </p> (\s*) |xms', "$1$2$3", $str);
+        }
+
         $str = $this->catchAndInjectTagAttributes($str); // ... {: .cls}
+
+        $str = MdPlusHelper::unshieldStr($str, true);
 
         // clean up shielded characters, e.g. '@#123;''@#123;' to '&#123;' :
         $str = preg_replace('/@#(\d+);/m', "&#$1;", $str);
 
-        return MdPlusHelper::unshieldStr($str, true);
-
+        return $str;
     } // postprocess
 
 
@@ -1206,57 +1226,55 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
      */
     private function catchAndInjectTagAttributes(string $str): string
     {
-        if (!str_contains($str, '{:')) {
+        if (!str_contains($str, '{:') || !preg_match('/(?<!\\\)<\w+/', $str)) {
             return $str;
         }
-        
+
+        // special case: string starts with attrib-def, i.e. no surrounding tags:
+        if (preg_match('|^\s*{:(.*?)}\s*(.*)|', $str, $m)) {
+            $attrs = MdPlusHelper::parseInlineBlockArguments($m[1]);
+            $attrsStr = $attrs['htmlAttrs'];
+            if ($this->paragraphContext) {
+                $str = "<span$attrsStr>$m[2]</span>";
+            } else {
+                $str = "<div$attrsStr>$m[2]</div>";
+            }
+            return $str;
+        }
+
         // run through HTML line by line:
         $lines = explode("\n", $str);
-        $attribs = '';
+        $attrDescr = false;
         $nLines = sizeof($lines);
         for ($i=0; $i<$nLines; $i++) {
             $line = &$lines[$i];
             
             // case attribs found and not consumed yet -> apply to following tag:
-            if ($attribs) {
-                if (preg_match_all('|<(\w+)|', $line, $m)) {
-                    $line = $this->applyAttributes($line, $attribs, $m[0][0]);
+            if ($attrDescr) {
+                if (preg_match('|(<\w+)|', $line, $m)) {
+                    $line = $this->applyAttributes($line, $attrDescr, $m[1]);
                 }
-                $attribs = false;
-            }
-            
-            // check whether there is anything to do:
-            if (!str_contains($line, '{:')) {
+                $attrDescr = false;
                 continue;
             }
-            
-            // handle case of '{: }' on separate line -> to be applied to next tag:
-            if (preg_match('|<p>{:(.*?)}</p>|', $line, $m)) {
-                $attribs = $m[1];
+
+            // line with nothing but attr descriptor:
+            if (preg_match('|^<p> \s* {:(.*?)} \s* </p> $|x', $line, $m)) {
+                $attrDescr = $m[1];
                 unset($lines[$i]);
                 continue;
-            } elseif (preg_match('|<p>{:(.*?)}|', $line, $m)) {
-                $attrs = MdPlusHelper::parseInlineBlockArguments($m[1]);
-                $attrsStr = $attrs['htmlAttrs'];
-                $line = str_replace($m[0], "<p$attrsStr>", $line);
+            }
+
+            if (!preg_match('|(.*) {:(.*?)} (.*)|x', $line, $m)) {
                 continue;
             }
-            
-            // handle all other cases -> apply to previous tag:
-            if (preg_match('|^(.*?)({:(.*?)})(.*)|', $line, $m)) {
-                $line = str_replace($m[2], '', $line);
-                if (preg_match('|<(\w+)|', $m[1], $mm)) {
-                    $line = $this->applyAttributes($line, $m[3], $mm[0]);
-                } else {
-                    for ($j=$i-1; $j>0; $j--) {
-                        $l = &$lines[$j];
-                        if (preg_match('|<(\w+)|', $l, $mm)) {
-                            $l = $this->applyAttributes($l, $m[3], $mm[0]);
-                            break;
-                        }
-                    }
-                }
+            $attrDescr = $m[2];
+            $line = $m[1].$m[3];
+            if (preg_match('/(\s*)(<.*?>)/', $line, $mm)) {
+                $line = $mm[1].$this->applyAttributes($line, $attrDescr, $mm[2]);
+                $attrDescr = false;
             }
+
         }
         return implode("\n", $lines);
     } // catchAndInjectTagAttributes
@@ -1269,17 +1287,50 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
      * @param string $pattern
      * @return string
      */
-    private function applyAttributes(string $line, string $attribs, string $pattern): string
+    private function applyAttributes(string $line, string $attribs, string $tag): string
     {
         $attrs = MdPlusHelper::parseInlineBlockArguments($attribs);
-        if (preg_match('/(class=["\'])/', $line, $mm)) {
-            $line = str_replace($mm[0], "$mm[1]{$attrs['class']} ", $line);
+        $line = substr(trim($line), strlen($tag));
+        $line = ltrim($line, '>');
+        $tag = rtrim($tag, '>');
 
-        } else {
-            $attrsStr = $attrs['htmlAttrs'];
-            $line = str_replace($pattern, "$pattern$attrsStr", $line);
+        // handle id:
+        if ($value = $attrs['id']??false) {
+            if (preg_match("/\sid= ['\"] .*? ['\"]/x", $tag, $mm)) {
+                $tag = str_replace($mm[0], '', $tag);
+            }
+            $tag .= " id='$value'";
         }
-        return $line;
+
+        // handle class:
+        if ($value = $attrs['class']??false) {
+            if (str_contains($tag, 'class=')) {
+                $tag = preg_replace("/(class=['\"])/", "$1$value ", $tag);
+            } else {
+                $tag .= " class='$value'";
+            }
+        }
+
+        // handle style:
+        if ($value = $attrs['style']??false) {
+            $value = rtrim($value, '; ').'; ';
+            if (str_contains($tag, 'style=')) {
+                $tag = preg_replace("/(style=['\"])/", "$1$value ", $tag);
+            } else {
+                $tag .= " style='$value'";
+            }
+        }
+
+        // misc attrs:
+        if ($attrs['attr']??false) {
+            foreach ($attrs['attr'] as $k => $v) {
+                if (!str_contains($tag,"$k='$v'")) {
+                    $tag .= " $k='$v'";
+                }
+            }
+        }
+
+        return "$tag>$line";
     } // applyAttributes
 
 

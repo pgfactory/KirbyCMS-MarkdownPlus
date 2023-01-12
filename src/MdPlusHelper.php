@@ -90,7 +90,17 @@ class MdPlusHelper
      */
     public static function findAvailableIcons(): void
     {
-        $paths = explode(',', kirby()->option('usility.markdownplus.iconsPath'));
+        $path = kirby()->option('usility.markdownplus.iconsPath');
+        if (!$path) {
+            if (is_dir('site/plugins/pagefactory/assets/icons/')) {
+                $paths[0] = 'site/plugins/pagefactory/assets/icons/';
+            } else {
+                $paths = [];
+            }
+        } else {
+            $paths = explode(',', $path);
+        }
+
         $paths[] = dirname(__DIR__)."/assets/svg-icons/";
         $icons = [];
         foreach ($paths as $path) {

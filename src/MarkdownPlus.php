@@ -1,6 +1,7 @@
 <?php
 namespace Usility\MarkdownPlus;
 
+use Usility\PageFactory\PageFactory as PageFactory;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
 
@@ -33,7 +34,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
      */
     public function __construct()
     {
-        $this->divblockChars = '@';
+        $this->divblockChars = PageFactory::$config['divblock-chars'] ?? '@';
         MdPlusHelper::findAvailableIcons();
     }
 
@@ -41,14 +42,17 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
     /**
      * Compiles a markdown string to HTML:
      * @param string $str
+     * @param bool $omitPWrapperTag
+     * @param int $sectionInx       -> handleFrontmatter -> css/scss-> replace #this/.this with section identifier
      * @return string
      * @throws Exception
      */
-    public function compile(string $str, bool $omitPWrapperTag = false):string
+    public function compile(string $str, bool $omitPWrapperTag = false, string $sectionIdentifier = ''):string
     {
         if (!$str) {
             return '';
         }
+        $this->sectionIdentifier = $sectionIdentifier;
         $this->paragraphContext = false;
         $str = $this->preprocess($str);
         $html = parent::parse($str);
@@ -1509,10 +1513,27 @@ EOT;
         while (preg_match('/^ \s* (\w+) : (.*?) \s* \n----\n (.*)/xms', $str, $m)) {
             $key = $m[1];
             $value = $m[2];
+            if (str_contains($key, 'css')) {
+                $value = $this->handleSectionRefs($value);
+            }
             page()->$key()->value .= $value;
             $str = $m[3];
         }
         return $str;
     } // handleFrontmatter
 
+
+    /**
+     * Helper for handleFrontmatter(): looks out for '#this' and '.this' and replaces this with 'pfy-section-N'
+     * @param string $value
+     * @return string
+     */
+    private function handleSectionRefs(string $value): string
+    {
+        if ($this->sectionIdentifier) {
+            $value = str_replace(['#this','.this'],
+                ["#$this->sectionIdentifier", ".$this->sectionIdentifier"], $value);
+        }
+        return $value;
+    } // handleSectionRefs
 } // MarkdownPlus

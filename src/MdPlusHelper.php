@@ -14,7 +14,7 @@ const MDP_LOGS_PATH =          'site/logs/';
 
 class MdPlusHelper
 {
-    private static array $availableIcons;
+    private static array $availableIcons = [];
 
 
     /**
@@ -90,6 +90,9 @@ class MdPlusHelper
      */
     public static function findAvailableIcons(): void
     {
+        if (self::$availableIcons) {
+            return;
+        }
         $path = kirby()->option('usility.markdownplus.iconsPath');
         if (!$path) {
             if (is_dir('site/plugins/pagefactory/assets/icons/')) {

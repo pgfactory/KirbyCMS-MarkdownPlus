@@ -1153,7 +1153,28 @@ EOT;
                 "/(?<!~)~~(?!~)/ms"  => '≈',
                 '/\bINFINITY\b/ms'  => '∞',
         ];
-        return preg_replace(array_keys($smartypants), array_values($smartypants), $str);
+
+        $out = '';
+        list($p1, $p2) = $this->strPosMatching($str, 0, '<raw>', '</raw>');
+        if ($p1 !== false) {
+            while ($p1 !== false) {
+                $s1 = substr($str, 0, $p1);
+                $s1 = preg_replace(array_keys($smartypants), array_values($smartypants), $s1);
+                $s2 = substr($str, $p1, ($p2 - $p1 + 6));
+                $s3 = substr($str, $p2 + 6);
+                $out .= "$s1$s2";
+                $str = $s3;
+                list($p1, $p2) = $this->strPosMatching($str, 0, '<raw>', '</raw>');
+                if ($p1 === false) {
+                    $s3 = preg_replace(array_keys($smartypants), array_values($smartypants), $s3);
+                    $out .= $s3;
+                }
+            }
+        } else {
+            $out = preg_replace(array_keys($smartypants), array_values($smartypants), $str);
+        }
+
+        return $out;
     } // smartypants
 
 
@@ -1197,6 +1218,129 @@ EOT;
         }
         return $str;
     } // handleIncludes
+
+
+    /**
+     * Returns positions of opening and closing patterns, ignoring shielded patters (e.g. \{{ )
+     * @param string $str
+     * @param int $p0
+     * @param string $pat1
+     * @param string $pat2
+     * @return array|false[]
+     * @throws Exception
+     */
+    private function strPosMatching(string $str, int $p0 = 0, string $pat1 = '{{', string $pat2 = '}}'): array
+    {
+
+        if (!$str) {
+            return [false, false];
+        }
+        $this->checkBracesBalance($str, $p0, $pat1, $pat2);
+
+        $d = strlen($pat2);
+        if ((strlen($str) < 4) || ($p0 > strlen($str))) {
+            return [false, false];
+        }
+
+        if (!$this->checkNesting($str, $pat1, $pat2)) {
+            return [false, false];
+        }
+
+        $p1 = $p0 = $this->findNextPattern($str, $pat1, $p0);
+        if ($p1 === false) {
+            return [false, false];
+        }
+        $cnt = 0;
+        do {
+            $p3 = $this->findNextPattern($str, $pat1, $p1+$d); // next opening pat
+            $p2 = $this->findNextPattern($str, $pat2, $p1+$d); // next closing pat
+            if ($p2 === false) { // no more closing pat
+                return [false, false];
+            }
+            if ($cnt === 0) {	// not in nexted structure
+                if ($p3 === false) {	// no more opening pat
+                    return [$p0, $p2];
+                }
+                if ($p2 < $p3) { // no more opening patterns or closing before next opening
+                    return [$p0, $p2];
+                } else {
+                    $cnt++;
+                    $p1 = $p3;
+                }
+            } else {	// within nexted structure
+                if ($p3 === false) {	// no more opening pat
+                    $cnt--;
+                    $p1 = $p2;
+                } else {
+                    if ($p2 < $p3) { // no more opening patterns or closing before next opening
+                        $cnt--;
+                        $p1 = $p2;
+                    } else {
+                        $cnt++;
+                        $p1 = $p3;
+                    }
+                }
+            }
+        } while (true);
+    } // strPosMatching
+
+
+    /**
+     * Helper for strPosMatching()
+     * @param string $str
+     * @param int $p0
+     * @param string $pat1
+     * @param string $pat2
+     * @throws Exception
+     */
+    private function checkBracesBalance(string $str, int $p0 = 0, string $pat1 = '{{', string $pat2 = '}}'): void
+    {
+        $shieldedOpening = substr_count($str, '\\' . $pat1, $p0);
+        $opening = substr_count($str, $pat1, $p0) - $shieldedOpening;
+        $shieldedClosing = substr_count($str, '\\' . $pat2, $p0);
+        $closing = substr_count($str, $pat2, $p0) - $shieldedClosing;
+        if ($opening > $closing) {
+            throw new Exception("Error in source: unbalanced number of &#123;&#123; resp }}");
+        }
+    } // checkBracesBalance
+
+
+    /**
+     * Helper for strPosMatching()
+     * @param string $str
+     * @param string $pat1
+     * @param string $pat2
+     * @return int
+     * @throws Exception
+     */
+    private function checkNesting(string $str, string $pat1, string $pat2): int
+    {
+        $n1 = substr_count($str, $pat1);
+        $n2 = substr_count($str, $pat2);
+        if ($n1 > $n2) {
+            throw new Exception("Nesting Error in string '$str'");
+        }
+        return $n1;
+    } // checkNesting
+
+
+    /**
+     * Finds the next position of unshielded pattern
+     * @param string $str
+     * @param string $pat
+     * @param int $p1
+     * @return false|int
+     */
+    private function findNextPattern(string $str, string $pat, mixed $p1 = 0): mixed
+    {
+        while (($p1 = strpos($str, $pat, $p1)) !== false) {
+            if (($p1 === 0) || (substr($str, $p1 - 1, 1) !== '\\')) {
+                break;
+            }
+            $p1 += strlen($pat);
+        }
+        return $p1;
+    } // findNextPattern
 
 
     /**

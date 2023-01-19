@@ -1,6 +1,7 @@
 <?php
 namespace Usility\MarkdownPlus;
 
+use cebe\markdown\MarkdownExtra;
 use Usility\PageFactory\PageFactory as PageFactory;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
@@ -17,7 +18,7 @@ const MDPMD_SINGLETON_TAGS =   'img,input,br,hr,meta,embed,link,source,track,wbr
 
 
 
-class MarkdownPlus extends \cebe\markdown\MarkdownExtra
+class MarkdownPlus extends MarkdownExtra
 {
     private static int $asciiTableInx   = 1;
     private static int $imageInx        = 0;
@@ -25,12 +26,12 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
 
     private string $divblockChars;
     private bool $paragraphContext;
-    private $inlineTags = ',a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,'.
+    private string $inlineTags = ',a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,'.
             'map,object,output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,';
     // 'skip' is a pseudo tag used by MarkdownPlus.
+    private string $sectionIdentifier;
 
     /**
-     * @param $kirby
      */
     public function __construct()
     {
@@ -43,7 +44,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
      * Compiles a markdown string to HTML:
      * @param string $str
      * @param bool $omitPWrapperTag
-     * @param int $sectionInx       -> handleFrontmatter -> css/scss-> replace #this/.this with section identifier
+     * @param string $sectionIdentifier
      * @return string
      * @throws Exception
      */
@@ -63,6 +64,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
     /**
      * Compiles string on non-block level, i.e. like inside a paragraph
      * @param string $str
+     * @param bool $omitPWrapperTag
      * @return string
      * @throws Exception
      */
@@ -74,9 +76,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
         $this->paragraphContext = true;
         $str = $this->preprocess($str);
         $html = parent::parseParagraph($str);
-        $html = $this->postprocess($html, $omitPWrapperTag);
-
-        return $html;
+        return $this->postprocess($html, $omitPWrapperTag);
     } // compile
 
 
@@ -87,8 +87,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
      */
     public function compileStr(string $str): string
     {
-        $html = parent::parse($str);
-        return $html;
+        return parent::parse($str);
     } // compileStr
 
 
@@ -138,6 +137,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
     /**
      * @param array $block
      * @return string
+     * @throws Exception
      */
     protected function renderAsciiTable(array $block): string
     {
@@ -163,7 +163,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
                 foreach ($cells as $cell) {
                     if ($cell && ($cell[0] === '>')) {
                         $cells2 = explode('|', $cell);
-                        foreach ($cells2 as $j => $c) {
+                        foreach ($cells2 as $c) {
                             $col++;
                             $table[$row][$col] = $c;
                         }
@@ -223,7 +223,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
             $table[0][0] = substr($table[0][0],1);
             $out .= "\t  <thead>\n\t    <tr>\n";
             for ($col = 0; $col < $nCols; $col++) {
-                $cell = isset($table[0][$col]) ? $table[0][$col] : '';
+                $cell = $table[0][$col] ?? '';
                 $cell = self::compileParagraph($cell, true);
                 $out .= "\t\t\t<th class='mdp-col-".($col+1)."'>$cell</th>\n";
             }
@@ -235,7 +235,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
             $out .= "\t\t<tr>\n";
             $colspan = 1;
             for ($col = 0; $col < $nCols; $col++) {
-                $cell = isset($table[$row][$col]) ? $table[$row][$col] : '';
+                $cell = $table[$row][$col] ?? '';
                 if ($cell === '>') {    // colspan?  e.g. |>|
                     $colspan++;
                     continue;
@@ -367,6 +367,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
     /**
      * @param string $str
      * @return string
+     * @throws Exception
      */
     private function compileEmbeddedDivBlock(string $str): string
     {
@@ -496,6 +497,7 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
     /**
      * @param array $block
      * @return string
+     * @throws Exception
      */
     protected function renderTabulator(array $block): string
     {
@@ -602,12 +604,13 @@ class MarkdownPlus extends \cebe\markdown\MarkdownExtra
                 break;
             }
         }
-        return [$block, $i];
+        return [$block, $i-1];
     } // consumeDefinitionList
 
     /**
      * @param array $block
      * @return string
+     * @throws Exception
      */
     protected function renderDefinitionList(array $block): string
     {
@@ -1090,6 +1093,7 @@ EOT;
     /**
      * Applies Post-Processing: kirbyTags, SmartyPants, fixing HTML, attribute injection
      * @param string $str
+     * @param bool $omitPWrapperTag
      * @return string
      */
     private function postprocess(string $str, bool $omitPWrapperTag = false): string
@@ -1116,9 +1120,7 @@ EOT;
         $str = MdPlusHelper::unshieldStr($str, true);
 
         // clean up shielded characters, e.g. '@#123;''@#123;' to '&#123;' :
-        $str = preg_replace('/@#(\d+);/m', "&#$1;", $str);
-
-        return $str;
+        return preg_replace('/@#(\d+);/m', "&#$1;", $str);
     } // postprocess
 
 
@@ -1126,6 +1128,7 @@ EOT;
      * Applies (PageFactory-)SmartyPants translation:
      * @param string $str
      * @return string
+     * @throws Exception
      */
     private function smartypants(string $str): string
     {
@@ -1432,7 +1435,7 @@ EOT;
      * Helper for catchAndInjectTagAttributes()
      * @param string $line
      * @param string $attribs
-     * @param string $pattern
+     * @param string $tag
      * @return string
      */
     private function applyAttributes(string $line, string $attribs, string $tag): string

@@ -25,18 +25,26 @@ class MarkdownPlus extends MarkdownExtra
     private static int $tabulatorInx    = 1;
 
     private string $divblockChars;
-    private bool $paragraphContext;
+    private bool $isParagraphContext;
     private string $inlineTags = ',a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,'.
             'map,object,output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,';
     // 'skip' is a pseudo tag used by MarkdownPlus.
     private string $sectionIdentifier;
+    private static $lang;
 
     /**
      */
     public function __construct()
     {
-        $this->divblockChars = PageFactory::$config['divblock-chars'] ?? '@';
+        if (class_exists('PageFactory')) {
+            $this->divblockChars = PageFactory::$config['divblock-chars'] ?? '@%';
+        } else {
+            $this->divblockChars = kirby()->option('usility.markdownplus.options')['divblock-chars'] ?? '@%';
+        }
         MdPlusHelper::findAvailableIcons();
+
+        $lang = kirby()->language();
+        self::$lang = $lang ? $lang->code() : '';
     }
 
 
@@ -54,7 +62,7 @@ class MarkdownPlus extends MarkdownExtra
             return '';
         }
         $this->sectionIdentifier = $sectionIdentifier;
-        $this->paragraphContext = false;
+        $this->isParagraphContext = false;
         $str = $this->preprocess($str);
         $html = parent::parse($str);
         return $this->postprocess($html, $omitPWrapperTag);
@@ -73,7 +81,7 @@ class MarkdownPlus extends MarkdownExtra
         if (!$str) {
             return '';
         }
-        $this->paragraphContext = true;
+        $this->isParagraphContext = true;
         $str = $this->preprocess($str);
         $html = parent::parseParagraph($str);
         return $this->postprocess($html, $omitPWrapperTag);
@@ -177,7 +185,7 @@ class MarkdownPlus extends MarkdownExtra
 
             } else {
                 if ($col < 0) {
-                    throw new Exception("Error in AsciiTable: cell definition needs leading '|'");
+                    throw new Exception("Error in AsciiTable: cell definition needs leading '|' (in \"$line\")");
                 }
                 $table[$row][$col] .= "\n$line";
             }
@@ -188,13 +196,15 @@ class MarkdownPlus extends MarkdownExtra
         unset($cells);
 
         // prepare table attributes:
-        $caption = $block['args'];
-        if (strpbrk($caption, '#.:=!~^_+') !== false) {
+        $caption = trim($block['args']);
+        $caption = preg_replace('/\{:(.*?)}/', "$1", $caption);
+        if ($caption) {
             $attrs = MdPlusHelper::parseInlineBlockArguments($caption);
             if (($attrs['tag'] === 'skip') || ($attrs['lang'] && ($attrs['lang'] !== kirby()->language()->code()))) {
                 return '';
             }
             $caption = $attrs['text'];
+            $caption = "\t  <caption>$caption</caption>\n";
             $attrsStr = $attrs['htmlAttrs'];
             $attrsStr = preg_replace('/class=["\'].*?["\']/', '', $attrsStr);
             $class = "mdp-table mdp-table-$inx";
@@ -210,29 +220,26 @@ class MarkdownPlus extends MarkdownExtra
         }
 
         // now render the table:
-        $out = "\t<table $attrsStr>\n";
-        if ($caption) {
-            $caption = trim($caption,'"\'');
-            $out .= "\t  <caption>$caption</caption>\n";
-        }
+        $out = "<table $attrsStr>\n";
+        $out .= $caption;
 
-        // render header as defined in first row, e.g. |# H1|H2
+            // render header as defined in first row, e.g. |# H1|H2
         $row = 0;
         if (isset($table[0][0]) && ($table[0][0][0] === '#')) {
             $row = 1;
             $table[0][0] = substr($table[0][0],1);
-            $out .= "\t  <thead>\n\t    <tr>\n";
+            $out .= "  <thead>\n    <tr>\n";
             for ($col = 0; $col < $nCols; $col++) {
                 $cell = $table[0][$col] ?? '';
                 $cell = self::compileParagraph($cell, true);
-                $out .= "\t\t\t<th class='mdp-col-".($col+1)."'>$cell</th>\n";
+                $out .= "\t\t<th class='mdp-col-".($col+1)."'>$cell</th>\n";
             }
-            $out .= "\t    </tr>\n\t  </thead>\n";
+            $out .= "    </tr>\n  </thead>\n";
         }
 
-        $out .= "\t  <tbody>\n";
+        $out .= "  <tbody>\n";
         for (; $row < $nRows; $row++) {
-            $out .= "\t\t<tr>\n";
+            $out .= "\t<tr>\n";
             $colspan = 1;
             for ($col = 0; $col < $nCols; $col++) {
                 $cell = $table[$row][$col] ?? '';
@@ -240,20 +247,20 @@ class MarkdownPlus extends MarkdownExtra
                     $colspan++;
                     continue;
                 } elseif ($cell) {
-                    $cell = self::compile($cell, true);
+                    $cell = self::compile($cell);
                 }
                 $colspanAttr = '';
                 if ($colspan > 1) {
                     $colspanAttr = " colspan='$colspan'";
                 }
-                $out .= "\t\t\t<td class='mdp-row-".($row+1)." mdp-col-".($col+1)."'$colspanAttr>\n\t\t\t\t$cell\t\t\t</td>\n";
+                $out .= "\t\t<td class='mdp-row-".($row+1)." mdp-col-".($col+1)."'$colspanAttr>\n\t\t\t$cell\t\t</td>\n";
                 $colspan = 1;
             }
-            $out .= "\t\t</tr>\n";
+            $out .= "\t</tr>\n";
         }
 
-        $out .= "\t  </tbody>\n";
-        $out .= "\t</table><!-- /asciiTable -->\n";
+        $out .= "  </tbody>\n";
+        $out .= "</table><!-- /asciiTable -->\n";
 
         return $out;
     } // AsciiTable
@@ -298,7 +305,8 @@ class MarkdownPlus extends MarkdownExtra
         // detect class or id and fence length (can be more than 3 backticks)
         $depth = 0;
         $marker = $block['marker'];
-        if (preg_match("/($marker{3,10})(.*)/",$line, $m)) {
+        $patter = preg_quote($marker).'{3,10}';
+        if (preg_match("/($patter)(.*)/",$line, $m)) {
             $fence = $m[1];
             $rest = trim($m[2]);
             if ($rest && ($rest[0] === '{')) {      // non-mdp block: e.g. "::: {#id}
@@ -318,7 +326,7 @@ class MarkdownPlus extends MarkdownExtra
             }
         }
 
-        $block['tag'] = $tag ?: (($marker === '%') ? 'span' : '');
+        $block['tag'] = $tag ?: '';
         $block['attributes'] = $attrs['htmlAttrs'];
         $block['lang'] = $attrs['lang'];
         $block['literal'] = $attrs['literal'];
@@ -327,7 +335,7 @@ class MarkdownPlus extends MarkdownExtra
         // consume all lines until end-tag, e.g. @@@
         for($i = $current + 1, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
-            if (preg_match("/^($marker{3,10})\s*(.*)/", $line, $m)) { // it's a potential fence line
+            if (preg_match("/^($patter)\s*(.*)/", $line, $m)) { // it's a potential fence line
                 $fenceEndCandidate = $m[1];
                 $rest = $m[2];
                 if ($fence === $fenceEndCandidate) {    // end tag we have to consider:
@@ -413,7 +421,7 @@ class MarkdownPlus extends MarkdownExtra
         $attrs = $block['attributes'];
 
         // exclude blocks with lang option set but is not current language:
-        if ($block['lang'] && ($block['lang'] !== kirby()->language()->code())) {
+        if ($block['lang'] && ($block['lang'] !== self::$lang)) {
             return '';
         }
 
@@ -594,10 +602,10 @@ class MarkdownPlus extends MarkdownExtra
             if (($lines[$i][0] !== ':') && (($lines[$i+1][0]??' ') === ':')) {
                 $dt++;
                 $block['content'][$dt]['dt'] = $lines[$i++];
-                $block['content'][$dt]['dd'] = ltrim(substr($lines[$i],1));
+                $block['content'][$dt]['dd'] = substr($lines[$i],1);
                 while (($lines[$i+1][0]??' ') === ':') {
                     $i++;
-                    $block['content'][$dt]['dd'] .= "\n".ltrim(substr($lines[$i],1));
+                    $block['content'][$dt]['dd'] .= "\n".substr($lines[$i],1);
                 }
                 $nEmptyLines = 0;
             } else {
@@ -621,11 +629,11 @@ class MarkdownPlus extends MarkdownExtra
         }
         $out = '';
         foreach ($block['content'] as $item) {
-            $dt = self::compileParagraph($item['dt'], true);
+            $dt = trim(self::compileParagraph($item['dt'], true));
             $out .= "\t<dt>$dt</dt>\n";
 
-            $dd = self::compile($item['dd'], true);
-            $out .= "\t<dd>$dd\t</dd>\n\n";
+            $dd = self::compile($item['dd']);
+            $out .= "\t<dd>\n$dd\t</dd>\n\n";
         }
         $out = $this->catchAndInjectTagAttributes($out);
         $out = <<<EOT
@@ -698,9 +706,9 @@ EOT;
         foreach ($block['content'] as $line) {
                 $line = self::compile($line, true);
                 $line = trim($line);
-                $out .= "\t\t<li>$line</li>\n";
+                $out .= "<li>$line</li>\n";
         }
-        $out = "\t<ol$start>\n$out\t</ol>\n";
+        $out = "<ol$start>\n$out</ol>\n";
         return $out;
     } // renderOrderedList
 
@@ -972,6 +980,9 @@ EOT;
         $attr = "src:'$src', alt:'$alt', caption:'$caption'";
         if (function_exists('Usility\\MarkdownPlus\\img')) {
             $str = $this->processByMacro('img', $attr);
+        } elseif ($caption) {
+            $str = "<img src='$src' alt='$alt'>";
+            $str = "<figure>$str<figcaption>$caption</figcaption></figure>";
         } else {
             $str = "<img src='$src' alt='$alt'>";
         }
@@ -1071,7 +1082,6 @@ EOT;
      */
     private function preprocess(string $str): string
     {
-        $str = trim($str);
         $str = MdPlusHelper::removeCStyleComments($str);
         $str = MdPlusHelper::zapFileEND($str);
 
@@ -1095,6 +1105,7 @@ EOT;
      * @param string $str
      * @param bool $omitPWrapperTag
      * @return string
+     * @throws Exception
      */
     private function postprocess(string $str, bool $omitPWrapperTag = false): string
     {
@@ -1158,7 +1169,8 @@ EOT;
         ];
 
         $out = '';
-        list($p1, $p2) = $this->strPosMatching($str, 0, '<raw>', '</raw>');
+        list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<raw>', '</raw>');
+//        list($p1, $p2) = $this->strPosMatching($str, 0, '<raw>', '</raw>');
         if ($p1 !== false) {
             while ($p1 !== false) {
                 $s1 = substr($str, 0, $p1);
@@ -1167,7 +1179,8 @@ EOT;
                 $s3 = substr($str, $p2 + 6);
                 $out .= "$s1$s2";
                 $str = $s3;
-                list($p1, $p2) = $this->strPosMatching($str, 0, '<raw>', '</raw>');
+                list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<raw>', '</raw>');
+//                list($p1, $p2) = $this->strPosMatching($str, 0, '<raw>', '</raw>');
                 if ($p1 === false) {
                     $s3 = preg_replace(array_keys($smartypants), array_values($smartypants), $s3);
                     $out .= $s3;
@@ -1224,129 +1237,6 @@ EOT;
 
 
     /**
-     * Returns positions of opening and closing patterns, ignoring shielded patters (e.g. \{{ )
-     * @param string $str
-     * @param int $p0
-     * @param string $pat1
-     * @param string $pat2
-     * @return array|false[]
-     * @throws Exception
-     */
-    private function strPosMatching(string $str, int $p0 = 0, string $pat1 = '{{', string $pat2 = '}}'): array
-    {
-
-        if (!$str) {
-            return [false, false];
-        }
-        $this->checkBracesBalance($str, $p0, $pat1, $pat2);
-
-        $d = strlen($pat2);
-        if ((strlen($str) < 4) || ($p0 > strlen($str))) {
-            return [false, false];
-        }
-
-        if (!$this->checkNesting($str, $pat1, $pat2)) {
-            return [false, false];
-        }
-
-        $p1 = $p0 = $this->findNextPattern($str, $pat1, $p0);
-        if ($p1 === false) {
-            return [false, false];
-        }
-        $cnt = 0;
-        do {
-            $p3 = $this->findNextPattern($str, $pat1, $p1+$d); // next opening pat
-            $p2 = $this->findNextPattern($str, $pat2, $p1+$d); // next closing pat
-            if ($p2 === false) { // no more closing pat
-                return [false, false];
-            }
-            if ($cnt === 0) {	// not in nexted structure
-                if ($p3 === false) {	// no more opening pat
-                    return [$p0, $p2];
-                }
-                if ($p2 < $p3) { // no more opening patterns or closing before next opening
-                    return [$p0, $p2];
-                } else {
-                    $cnt++;
-                    $p1 = $p3;
-                }
-            } else {	// within nexted structure
-                if ($p3 === false) {	// no more opening pat
-                    $cnt--;
-                    $p1 = $p2;
-                } else {
-                    if ($p2 < $p3) { // no more opening patterns or closing before next opening
-                        $cnt--;
-                        $p1 = $p2;
-                    } else {
-                        $cnt++;
-                        $p1 = $p3;
-                    }
-                }
-            }
-        } while (true);
-    } // strPosMatching
-
-
-    /**
-     * Helper for strPosMatching()
-     * @param string $str
-     * @param int $p0
-     * @param string $pat1
-     * @param string $pat2
-     * @throws Exception
-     */
-    private function checkBracesBalance(string $str, int $p0 = 0, string $pat1 = '{{', string $pat2 = '}}'): void
-    {
-        $shieldedOpening = substr_count($str, '\\' . $pat1, $p0);
-        $opening = substr_count($str, $pat1, $p0) - $shieldedOpening;
-        $shieldedClosing = substr_count($str, '\\' . $pat2, $p0);
-        $closing = substr_count($str, $pat2, $p0) - $shieldedClosing;
-        if ($opening > $closing) {
-            throw new Exception("Error in source: unbalanced number of &#123;&#123; resp }}");
-        }
-    } // checkBracesBalance
-
-
-    /**
-     * Helper for strPosMatching()
-     * @param string $str
-     * @param string $pat1
-     * @param string $pat2
-     * @return int
-     * @throws Exception
-     */
-    private function checkNesting(string $str, string $pat1, string $pat2): int
-    {
-        $n1 = substr_count($str, $pat1);
-        $n2 = substr_count($str, $pat2);
-        if ($n1 > $n2) {
-            throw new Exception("Nesting Error in string '$str'");
-        }
-        return $n1;
-    } // checkNesting
-
-
-    /**
-     * Finds the next position of unshielded pattern
-     * @param string $str
-     * @param string $pat
-     * @param int $p1
-     * @return false|int
-     */
-    private function findNextPattern(string $str, string $pat, mixed $p1 = 0): mixed
-    {
-        while (($p1 = strpos($str, $pat, $p1)) !== false) {
-            if (($p1 === 0) || (substr($str, $p1 - 1, 1) !== '\\')) {
-                break;
-            }
-            $p1 += strlen($pat);
-        }
-        return $p1;
-    } // findNextPattern
-
-
-    /**
      * Fixes irregular behavior of cebe/markdown compiler:
      * -> ul and ol not recognized if no empty line before pattern
      * @param string $str
@@ -1377,20 +1267,29 @@ EOT;
      */
     private function catchAndInjectTagAttributes(string $str): string
     {
-        if (!str_contains($str, '{:') || !preg_match('/(?<!\\\)<\w+/', $str)) {
+        if (!str_contains($str, '{:')) {
             return $str;
         }
+
 
         // special case: string starts with attrib-def, i.e. no surrounding tags:
         if (preg_match('|^\s*{:(.*?)}\s*(.*)|', $str, $m)) {
             $attrs = MdPlusHelper::parseInlineBlockArguments($m[1]);
             $attrsStr = $attrs['htmlAttrs'];
-            if ($this->paragraphContext) {
+            if ($this->isParagraphContext) {
                 $str = "<span$attrsStr>$m[2]</span>";
             } else {
                 $str = "<div$attrsStr>$m[2]</div>";
             }
             return $str;
+
+        // case string contains no leading HTML tag -> wrap it:
+        } elseif (!preg_match('/(?<!\\\)<\w+/', $str)) {
+            if ($this->isParagraphContext) {
+                $str = "<div>$str</div>";
+            } else {
+                $str = "<span>$str</span>";
+            }
         }
 
         // run through HTML line by line:
@@ -1402,8 +1301,8 @@ EOT;
             
             // case attribs found and not consumed yet -> apply to following tag:
             if ($attrDescr) {
-                if (preg_match('|(<\w+)|', $line, $m)) {
-                    $line = $this->applyAttributes($line, $attrDescr, $m[1]);
+                if (preg_match('/(\s*)(<.*?>)/', $line, $mm)) {
+                    $line = $mm[1].$this->applyAttributes($line, $attrDescr, $mm[2]);
                 }
                 $attrDescr = false;
                 continue;
@@ -1441,47 +1340,55 @@ EOT;
     private function applyAttributes(string $line, string $attribs, string $tag): string
     {
         $attrs = MdPlusHelper::parseInlineBlockArguments($attribs);
-        $line = substr(trim($line), strlen($tag));
-        $line = ltrim($line, '>');
-        $tag = rtrim($tag, '>');
+        
+        if ($p = strpos($line, '>')) {
+            if ($line[$p-1] === '/') {
+                $elem = rtrim(substr($line, 0, $p-1));
+            } else {
+                $elem = rtrim(substr($line, 0, $p));
+            }
+        } else {
+            $elem = $line;
+        }
+        $rest = substr(trim($line), strlen($tag));
 
         // handle id:
         if ($value = $attrs['id']??false) {
-            if (preg_match("/\sid= ['\"] .*? ['\"]/x", $tag, $mm)) {
-                $tag = str_replace($mm[0], '', $tag);
+            if (preg_match("/\sid= ['\"] .*? ['\"]/x", $elem, $mm)) {
+                $elem = str_replace($mm[0], '', $elem);
             }
-            $tag .= " id='$value'";
+            $elem .= " id='$value'";
         }
 
         // handle class:
         if ($value = $attrs['class']??false) {
-            if (str_contains($tag, 'class=')) {
-                $tag = preg_replace("/(class=['\"])/", "$1$value ", $tag);
+            if (str_contains($elem, 'class=')) {
+                $elem = preg_replace("/(class=['\"])/", "$1$value ", $elem);
             } else {
-                $tag .= " class='$value'";
+                $elem .= " class='$value'";
             }
         }
 
         // handle style:
         if ($value = $attrs['style']??false) {
             $value = rtrim($value, '; ').'; ';
-            if (str_contains($tag, 'style=')) {
-                $tag = preg_replace("/(style=['\"])/", "$1$value ", $tag);
+            if (str_contains($elem, 'style=')) {
+                $elem = preg_replace("/(style=['\"])/", "$1$value ", $elem);
             } else {
-                $tag .= " style='$value'";
+                $elem .= " style='$value'";
             }
         }
 
         // misc attrs:
         if ($attrs['attr']??false) {
             foreach ($attrs['attr'] as $k => $v) {
-                if (!str_contains($tag,"$k='$v'")) {
-                    $tag .= " $k='$v'";
+                if (!str_contains($elem,"$k='$v'")) {
+                    $elem .= " $k='$v'";
                 }
             }
         }
 
-        return "$tag>$line";
+        return "$elem>$rest";
     } // applyAttributes
 
 
@@ -1592,6 +1499,7 @@ EOT;
      * Exceptions are 'link' and 'image', they are executed by corresponding macros
      * @param string $str
      * @return string
+     * @throws Exception
      */
     private function handleKirbyTags(string $str): string
     {
@@ -1633,9 +1541,13 @@ EOT;
      * @param string $macroName
      * @param string $argStr
      * @return mixed
+     * @throws Exception
      */
     private function processByMacro(string $macroName, string $argStr): mixed
     {
+        if (class_exists('PageFactory')) {
+            throw new Exception("Unable to execute macro '$macroName', PageFactory not installed.");
+        }
         // insert commas between arguments:
         if (!str_contains($argStr, ',')) {
             $argStr = preg_replace('/(\s\w+:)/', ",$1", $argStr);
@@ -1671,7 +1583,7 @@ EOT;
 
 
     /**
-     * Helper for handleFrontmatter(): looks out for '#this' and '.this' and replaces this with 'pfy-section-N'
+     * Helper for handleFrontmatter(): looks out for '#this' and '.this' and replaces this with 'mdp-section-N'
      * @param string $value
      * @return string
      */

@@ -161,6 +161,7 @@ class MdPlusHelper
      * @param string $str
      * @param bool $unshieldLiteral
      * @return string
+     * @throws Exception
      */
     public static function unshieldStr(string $str, bool $unshieldLiteral = false): string
     {
@@ -174,7 +175,7 @@ class MdPlusHelper
             foreach ($m[1] as $i => $item) {
                 $mdStr = base64_decode($m[1][$i]);
                 $md = new MarkdownPlus();
-                $html = $md->compileStr($mdStr);
+                $html = $md->compile($mdStr);
                 $str = str_replace($m[0][$i], $html, $str);
             }
         }
@@ -248,6 +249,7 @@ class MdPlusHelper
             }
         }
 
+        // find style instructions "xx:yy":
         if (preg_match_all('/([=!\w-]+) : ([^\s;,]+) ;?/x', $str, $m)) {
             foreach ($m[2] as $i => $t) {
                 $ch1 = $m[1][$i][0];
@@ -631,6 +633,7 @@ class MdPlusHelper
 
     /**
      * Removes c-style comments from a string, e.g. // or /*
+     * Supported exceptions: links (http://...) and shielded comments (\// or \/*)
      * @param string $str
      * @return string
      */
@@ -640,6 +643,10 @@ class MdPlusHelper
         while (($p = strpos($str, '/*', $p)) !== false) {        // /* */ style comments
 
             $ch_1 = $p ? $str[$p - 1] : "\n"; // char preceding '/*' must be whitespace
+            if ($p && ($ch_1 === '\\')) {                    // avoid shielded //
+                $p += 2;
+                continue;
+            }
             if (strpbrk(" \n\t", $ch_1) === false) {
                 $p += 2;
                 continue;
@@ -650,26 +657,25 @@ class MdPlusHelper
 
         $p = 0;
         while (($p = strpos($str, '//', $p)) !== false) {        // // style comments
-
-            if ($p && ($str[$p - 1] === ':')) {            // avoid http://
+            $ch_1 = $p ? $str[$p - 1] : "\n"; // char preceding '/*' must be whitespace
+            if ($p && ($ch_1 === ':')) {            // avoid http://
                 $p += 2;
                 continue;
             }
 
-            if ($p && ($str[$p - 1] === '\\')) {                    // avoid shielded //
-                $str = substr($str, 0, $p - 1) . substr($str, $p);
+            if ($p && ($ch_1 === '\\')) {                    // avoid shielded //
                 $p += 2;
                 continue;
             }
-            $p2 = strpos($str, "\n", $p);
+            $p2 = strpos($str, "\n", $p);       // find end of line
             if ($p2 === false) {
                 return substr($str, 0, $p);
             }
 
-            if ((!$p || ($str[$p - 1] === "\n")) && ($str[$p2])) {
+            if ((!$p || ($ch_1 === "\n")) && ($str[$p2])) {
                 $p2++;
             }
-            $str = substr($str, 0, $p) . substr($str, $p2);
+            $str = substr($str, 0, $p) . substr($str, $p2); // cut out commented part
         }
         return $str;
     } // removeCStyleComments
@@ -958,7 +964,7 @@ class MdPlusHelper
      * @return array|false[]
      * @throws Exception
      */
-    private static function strPosMatching(string $str, int $p0 = 0, string $pat1 = '{{', string $pat2 = '}}'): array
+    public static function strPosMatching(string $str, int $p0 = 0, string $pat1 = '{{', string $pat2 = '}}'): array
     {
 
         if (!$str) {

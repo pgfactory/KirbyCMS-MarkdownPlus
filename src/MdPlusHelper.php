@@ -336,6 +336,9 @@ class MdPlusHelper
                 $inline = true;
             } elseif ($arg === 'lang') {
                 $lang = $param;
+                if (!kirby()->language()) {
+                    throw new \Exception("Warning: no language is active or defined while using MarkdownPlus option '!lang=xy'. -> You need to configure languages.");
+                }
                 if (($lang === 'skip') || ($lang === 'none')) {
                     $tag = 'skip';
                     $style = $style? " $style display:none;" : 'display:none;';

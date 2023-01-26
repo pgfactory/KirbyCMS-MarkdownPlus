@@ -15,7 +15,7 @@ use Kirby\Exception\InvalidArgumentException;
 
  // HTML tags that must not have a closing tag:
 const MDPMD_SINGLETON_TAGS =   'img,input,br,hr,meta,embed,link,source,track,wbr,col,area';
-
+const DEFAULT_TABULATOR_WIDTH = '6em';
 
 
 class MarkdownPlus extends MarkdownExtra
@@ -30,6 +30,7 @@ class MarkdownPlus extends MarkdownExtra
             'map,object,output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,';
     // 'skip' is a pseudo tag used by MarkdownPlus.
     private string $sectionIdentifier;
+    private bool $removeComments;
     private static $lang;
 
     /**
@@ -56,12 +57,13 @@ class MarkdownPlus extends MarkdownExtra
      * @return string
      * @throws Exception
      */
-    public function compile(string $str, bool $omitPWrapperTag = false, string $sectionIdentifier = ''):string
+    public function compile(string $str, bool $omitPWrapperTag = false, string $sectionIdentifier = '', $removeComments = true):string
     {
         if (!$str) {
             return '';
         }
         $this->sectionIdentifier = $sectionIdentifier;
+        $this->removeComments = $removeComments;
         $this->isParagraphContext = false;
         $str = $this->preprocess($str);
         $html = parent::parse($str);
@@ -305,8 +307,8 @@ class MarkdownPlus extends MarkdownExtra
         // detect class or id and fence length (can be more than 3 backticks)
         $depth = 0;
         $marker = $block['marker'];
-        $patter = preg_quote($marker).'{3,10}';
-        if (preg_match("/($patter)(.*)/",$line, $m)) {
+        $pattern = preg_quote($marker).'{3,10}';
+        if (preg_match("/($pattern)(.*)/",$line, $m)) {
             $fence = $m[1];
             $rest = trim($m[2]);
             if ($rest && ($rest[0] === '{')) {      // non-mdp block: e.g. "::: {#id}
@@ -335,7 +337,7 @@ class MarkdownPlus extends MarkdownExtra
         // consume all lines until end-tag, e.g. @@@
         for($i = $current + 1, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
-            if (preg_match("/^($patter)\s*(.*)/", $line, $m)) { // it's a potential fence line
+            if (preg_match("/^($pattern)\s*(.*)/", $line, $m)) { // it's a potential fence line
                 $fenceEndCandidate = $m[1];
                 $rest = $m[2];
                 if ($fence === $fenceEndCandidate) {    // end tag we have to consider:
@@ -481,15 +483,13 @@ class MarkdownPlus extends MarkdownExtra
                 $nEmptyLines = 0;
             }
             $line = $lines[$i];
-            if (preg_match('/([.\d]{1,3}\w{1,2})? >> [\s\t]/x', $line)) {
+            if (preg_match_all('/([.\d]{1,3}\w{1,2})? >> [\s\t]/x', $line, $m)) {
                 $block['content'][] = $line;
-
-                preg_match_all('/([.\d]{1,3}\w{1,2})? >> [\s\t]/x', $line, $m);
                 foreach ($m[1] as $j => $width) {
                     if ($width) {
                         $block['widths'][$j] = $width;
-                    } elseif (isset($block['widths'][$j])) {
-                        $block['widths'][$j] = '6em';
+                    } elseif (!isset($block['widths'][$j])) {
+                        $block['widths'][$j] = DEFAULT_TABULATOR_WIDTH;
                     }
                 }
                 $last = $i;
@@ -517,7 +517,7 @@ class MarkdownPlus extends MarkdownExtra
             $addedWidths = 0; // px
             $addedEmsWidths = 0; // em
             foreach ($parts as $n => $elem) {
-                if ($w = $block['widths'][$n]??false) {
+                if ($w = ($block['widths'][$n])??false) {
                     $style = " style='width:$w;'";
                     $addedWidths += MdPlusHelper::convertToPx($w);
                     $addedWidths += MdPlusHelper::convertToPx('1.2em');
@@ -1082,8 +1082,10 @@ EOT;
      */
     private function preprocess(string $str): string
     {
-        $str = MdPlusHelper::removeCStyleComments($str);
-        $str = MdPlusHelper::zapFileEND($str);
+        if ($this->removeComments) {
+            $str = MdPlusHelper::removeCStyleComments($str);
+            $str = MdPlusHelper::zapFileEND($str);
+        }
 
         $str = $this->handleFrontmatter($str);
 
@@ -1156,7 +1158,7 @@ EOT;
                 '/(?<!&gt;)>&gt;(?!&gt;)/ms'  => '&#187;',      // >>
                 '/(?<!&gt;)&gt;&gt;(?!&gt;)/ms'  => '&#187;',   // >>
                 '/\bEURO\b/ms'  => '&euro;',
-                '/sS/ms'  => 'ß',
+                //'/sS/ms'  => 'ß',
                 '|1/4|ms'  => '&frac14;',
                 '|1/2|ms'  => '&frac12;',
                 '|3/4|ms'  => '&frac34;',
@@ -1351,6 +1353,13 @@ EOT;
             $elem = $line;
         }
         $rest = substr(trim($line), strlen($tag));
+
+        // handle lang:
+        if ($value = $attrs['lang']??false) {
+            if ($value !== self::$lang) {
+                return '';
+            }
+        }
 
         // handle id:
         if ($value = $attrs['id']??false) {

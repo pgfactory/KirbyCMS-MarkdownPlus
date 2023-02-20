@@ -227,7 +227,7 @@ class MarkdownPlus extends MarkdownExtra
 
             // render header as defined in first row, e.g. |# H1|H2
         $row = 0;
-        if (isset($table[0][0]) && ($table[0][0][0] === '#')) {
+        if (isset($table[0][0]) && (($table[0][0][0]??'') === '#')) {
             $row = 1;
             $table[0][0] = substr($table[0][0],1);
             $out .= "  <thead>\n    <tr>\n";
@@ -1132,6 +1132,8 @@ EOT;
 
         $str = MdPlusHelper::unshieldStr($str, true);
 
+        $str = str_replace(['<literal>','</literal>'], '', $str);
+
         // clean up shielded characters, e.g. '@#123;''@#123;' to '&#123;' :
         return preg_replace('/@#(\d+);/m', "&#$1;", $str);
     } // postprocess
@@ -1248,7 +1250,9 @@ EOT;
     {
         $lines = explode("\n", $str);
         foreach ($lines as $i => $line) {
-            if (str_starts_with($line, '- ')) {
+            if (!$line) {
+                continue;
+            } elseif (str_starts_with($line, '- ')) {
                 if (($lines[$i-1]??false) && preg_match('/^[^\-\s].*/',$lines[$i-1])) {
                     $lines[$i-1] .= "\n";
                 }
@@ -1256,6 +1260,8 @@ EOT;
                 if (($lines[$i-1]??false) && !preg_match('/^\d+!?\./', $lines[$i-1], $m)) {
                     $lines[$i-1] .= "\n";
                 }
+            } elseif (($line[0] === '<') && ($line[strlen($line)-1] === '>')) {
+                $lines[$i] = "<literal>$line</literal>";
             }
         }
         return implode("\n", $lines);

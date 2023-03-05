@@ -1174,7 +1174,6 @@ EOT;
 
         $out = '';
         list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<raw>', '</raw>');
-//        list($p1, $p2) = $this->strPosMatching($str, 0, '<raw>', '</raw>');
         if ($p1 !== false) {
             while ($p1 !== false) {
                 $s1 = substr($str, 0, $p1);
@@ -1184,7 +1183,6 @@ EOT;
                 $out .= "$s1$s2";
                 $str = $s3;
                 list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<raw>', '</raw>');
-//                list($p1, $p2) = $this->strPosMatching($str, 0, '<raw>', '</raw>');
                 if ($p1 === false) {
                     $s3 = preg_replace(array_keys($smartypants), array_values($smartypants), $s3);
                     $out .= $s3;

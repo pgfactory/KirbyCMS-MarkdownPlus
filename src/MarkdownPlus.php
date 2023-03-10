@@ -84,6 +84,7 @@ class MarkdownPlus extends MarkdownExtra
             return '';
         }
         $this->isParagraphContext = true;
+        $this->removeComments = true;
         $str = $this->preprocess($str);
         $html = parent::parseParagraph($str);
         return $this->postprocess($html, $omitPWrapperTag);

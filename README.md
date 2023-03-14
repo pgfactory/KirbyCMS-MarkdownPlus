@@ -9,7 +9,7 @@ Extends Markdown syntax by a small set of highly useful extensions
 
 ### Download
 
-Download and copy this repository to `/site/plugins/pagefactory/markdownplus`.
+Download and copy this repository to `/site/plugins/markdownplus`.
 
 ### Git submodule
 

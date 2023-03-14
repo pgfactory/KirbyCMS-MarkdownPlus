@@ -6,6 +6,8 @@ use Usility\PageFactory\PageFactory as PageFactory;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
 
+include_once __DIR__ . '/MdPlusHelper.php';
+
 /*
  * MarkdownPlus extends \cebe\markdown\MarkdownExtra
  * Why not Kirby's native ParsedownExtra?

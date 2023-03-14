@@ -14,10 +14,18 @@ Download and copy this repository to `/site/plugins/markdownplus`.
 ### Git submodule
 
 ```
-git submodule add https://github.com/pgfactory/KirbyCMS-MarkdownPlus.git
+git submodule add https://github.com/pgfactory/KirbyCMS-MarkdownPlus.git /site/plugins/markdownplus
 ```
 
 ### Composer
+
+If you want to start from scratch:
+
+```
+composer create-project getkirby/plainkit .
+```
+
+Add MarkdownPlus plugin:
 
 ```
 composer require pgfactory/markdownplus

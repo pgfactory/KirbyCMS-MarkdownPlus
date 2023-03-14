@@ -1,10 +1,17 @@
 {
-    "require": {
-        "cebe/markdown": "^1.2"
-    },
-    "autoload": {
-        "psr-4": {
-            "Usility\\MarkdownPlus\\": "src/"
+    "name": "pgfactory/markdownplus",
+    "description": "Replaces the built-in Markdown compiler, provides few but powerful extensions",
+    "license": "MIT",
+    "type": "kirby-plugin",
+    "version": "1.0.0",
+    "authors": [
+        {
+            "name": "Dieter Stokar",
+            "email": "webmaster@pagefactory.info"
         }
+    ],
+    "require": {
+        "getkirby/composer-installer": "^1.1",
+        "cebe/markdown": "^1.2"
     }
 }

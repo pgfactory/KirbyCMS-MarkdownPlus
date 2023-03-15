@@ -151,7 +151,7 @@ class MdPlusHelper
         if ($mdCompile) {
             return '<md>' . base64_encode($str) . '</md>';
         } else {
-            return '<raw>' . base64_encode($str) . '</raw>';
+            return '<tt>' . base64_encode($str) . '</tt>';
         }
     } // shieldStr
 
@@ -165,7 +165,7 @@ class MdPlusHelper
      */
     public static function unshieldStr(string $str, bool $unshieldLiteral = false): string
     {
-        if ($unshieldLiteral && preg_match_all('|<raw>(.*?)</raw>|m', $str, $m)) {
+        if ($unshieldLiteral && preg_match_all('|<tt>(.*?)</tt>|m', $str, $m)) {
             foreach ($m[1] as $i => $item) {
                 $literal = base64_decode($m[1][$i]);
                 $str = str_replace($m[0][$i], $literal, $str);
@@ -835,7 +835,7 @@ class MdPlusHelper
         }
 
         // if string starts with { we assume it's json:
-        if (($str[0] === '{') && (!str_starts_with($str, '<raw>')) && (!str_starts_with($str, '{md{'))) {
+        if (($str[0] === '{') && (!str_starts_with($str, '<tt>')) && (!str_starts_with($str, '{md{'))) {
             return Json::decode($str);
         }
 
@@ -871,9 +871,9 @@ class MdPlusHelper
         $options = Yaml::decode($yaml);
 
         // case a value was written in '{...}' notation -> unpack:
-        if (str_contains($yaml, '<raw>')) {
+        if (str_contains($yaml, '<tt>')) {
             foreach ($options as $key => $value) {
-                if (str_starts_with($value, '<raw>')) {
+                if (str_starts_with($value, '<tt>')) {
                     $options[$key] = self::unshieldStr($value, true);
                 }
             }

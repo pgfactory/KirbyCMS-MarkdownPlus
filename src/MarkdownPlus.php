@@ -154,24 +154,97 @@ class MarkdownPlus extends MarkdownExtra
      */
     protected function renderAsciiTable(array $block): string
     {
+        // parse table source, convert to 2D-table:
+        list($table, $nCols, $nRows, $rowAttribs) = $this->parseTableSource($block['content']);
+
+        // prepare table attributes:
+        list($caption, $attrsStr) = $this->prepareTableAttributes($block['args']);
+        if ($attrsStr === null) {
+            return '';
+        }
+
+        // now render the table:
+        $out = "<table $attrsStr>\n";
+        $out .= $caption;
+
+        // render header as defined in first row, e.g. |# H1|H2
+        $row = 0;
+        if (isset($table[0][0]) && (($table[0][0][0]??'') === '#')) {
+            $row = 1;
+            $table[0][0] = substr($table[0][0],1);
+            $out .= "  <thead>\n    <tr>\n";
+            for ($col = 0; $col < $nCols; $col++) {
+                $cell = $table[0][$col] ?? '';
+                $cell = self::compileParagraph($cell, omitPWrapperTag: true);
+                $out .= "\t\t<th class='mdp-col-".($col+1)."'>$cell</th>\n";
+            }
+            $out .= "    </tr>\n  </thead>\n";
+        }
+
+        // render table body:
+        $out .= "  <tbody>\n";
+        for (; $row < $nRows; $row++) {
+            $rowAttrib = $rowAttribs[$row]??'';
+            $out .= "\t<tr$rowAttrib>\n";
+            $colspan = 1;
+            for ($col = 0; $col < $nCols; $col++) {
+                $cell = $table[$row][$col] ?? '';
+                if ($cell === '>') {    // colspan?  e.g. |>|
+                    $colspan++;
+                    continue;
+                } elseif ($cell) {
+                    $cell = self::compile($cell, omitPWrapperTag: true);
+                }
+                $colspanAttr = '';
+                if ($colspan > 1) {
+                    $colspanAttr = " colspan='$colspan'";
+                }
+                $out .= "\t\t<td class='mdp-row-".($row+1)." mdp-col-".($col+1)."'$colspanAttr>\n\t\t\t$cell\t\t</td>\n";
+                $colspan = 1;
+            }
+            $out .= "\t</tr>\n";
+        }
+
+        $out .= "  </tbody>\n";
+        $out .= "</table><!-- /asciiTable -->\n";
+
+        return $out;
+    } // AsciiTable
+
+    /**
+     * @param array $content
+     * @return array
+     * @throws Exception
+     */
+    private function parseTableSource(array $content): array
+    {
         $table = [];
+        $rowAttribs = [];
         $nCols = 0;
         $row = 0;
         $col = -1;
 
-        $inx = self::$asciiTableInx++;
-
-        for ($i = 0; $i < sizeof($block['content']); $i++) {
-            $line = $block['content'][$i];
+        // parse source, transform into 2D-array:
+        for ($i = 0; $i < sizeof($content); $i++) {
+            $line = $content[$i];
 
             if (strncmp($line, '|---', 4) === 0) {  // new row
+                // check for row class, like "|--- ":
+                $line = ltrim(substr($line, 4), ' -');
+                if ($line) {
+                    if (preg_match('/\{:(.*)}/', trim($line), $m)) {
+                        $line = $m[1];
+                    }
+                    $args = MdPlusHelper::parseInlineBlockArguments($line);
+                    $rowAttribs[$row+1] = $args['htmlAttrs'];
+                }
                 $row++;
                 $col = -1;
                 continue;
             }
 
             if (isset($line[0]) && ($line[0] === '|')) {  // next cell starts
-                $line = substr($line,1);
+                $line = substr($line, 1);
                 $cells = preg_split('/\s(?<!\\\)\|/', $line); // pattern is ' |'
                 foreach ($cells as $cell) {
                     if ($cell && ($cell[0] === '>')) {
@@ -197,16 +270,24 @@ class MarkdownPlus extends MarkdownExtra
             $nCols = max($nCols, $col);
         }
         $nCols++;
-        $nRows = $row+1;
+        $nRows = $row + 1;
         unset($cells);
+        return array($table, $nCols, $nRows, $rowAttribs);
+    } // parseTableSource
 
-        // prepare table attributes:
-        $caption = trim($block['args']);
+    /**
+     * @param string $args
+     * @return array|null[]
+     */
+    private function prepareTableAttributes(string $args): array
+    {
+        $inx = self::$asciiTableInx++;
+        $caption = trim($args);
         $caption = preg_replace('/\{:(.*?)}/', "$1", $caption);
         if ($caption) {
             $attrs = MdPlusHelper::parseInlineBlockArguments($caption);
             if (($attrs['tag'] === 'skip') || ($attrs['lang'] && ($attrs['lang'] !== kirby()->language()->code()))) {
-                return '';
+                return array(null, null);
             }
             $caption = $attrs['text'];
             $caption = "\t  <caption>$caption</caption>\n";
@@ -214,61 +295,17 @@ class MarkdownPlus extends MarkdownExtra
             $attrsStr = preg_replace('/class=["\'].*?["\']/', '', $attrsStr);
             $class = "mdp-table mdp-table-$inx";
             if ($attrs['class']) {
-                $class .= ' '.$attrs['class'];
+                $class .= ' ' . $attrs['class'];
             }
             if (!$attrs['id']) {
-                $attrsStr = "id='mdp-table-$inx' ".$attrsStr;
+                $attrsStr = "id='mdp-table-$inx' " . $attrsStr;
             }
             $attrsStr .= " class='$class'";
         } else {
             $attrsStr = "id='mdp-table-$inx' class='mdp-table mdp-table-$inx'";
         }
-
-        // now render the table:
-        $out = "<table $attrsStr>\n";
-        $out .= $caption;
-
-            // render header as defined in first row, e.g. |# H1|H2
-        $row = 0;
-        if (isset($table[0][0]) && (($table[0][0][0]??'') === '#')) {
-            $row = 1;
-            $table[0][0] = substr($table[0][0],1);
-            $out .= "  <thead>\n    <tr>\n";
-            for ($col = 0; $col < $nCols; $col++) {
-                $cell = $table[0][$col] ?? '';
-                $cell = self::compileParagraph($cell, true);
-                $out .= "\t\t<th class='mdp-col-".($col+1)."'>$cell</th>\n";
-            }
-            $out .= "    </tr>\n  </thead>\n";
-        }
-
-        $out .= "  <tbody>\n";
-        for (; $row < $nRows; $row++) {
-            $out .= "\t<tr>\n";
-            $colspan = 1;
-            for ($col = 0; $col < $nCols; $col++) {
-                $cell = $table[$row][$col] ?? '';
-                if ($cell === '>') {    // colspan?  e.g. |>|
-                    $colspan++;
-                    continue;
-                } elseif ($cell) {
-                    $cell = self::compile($cell);
-                }
-                $colspanAttr = '';
-                if ($colspan > 1) {
-                    $colspanAttr = " colspan='$colspan'";
-                }
-                $out .= "\t\t<td class='mdp-row-".($row+1)." mdp-col-".($col+1)."'$colspanAttr>\n\t\t\t$cell\t\t</td>\n";
-                $colspan = 1;
-            }
-            $out .= "\t</tr>\n";
-        }
-
-        $out .= "  </tbody>\n";
-        $out .= "</table><!-- /asciiTable -->\n";
-
-        return $out;
-    } // AsciiTable
+        return array($caption, $attrsStr);
+    } // prepareTableAttributes
 
 
 
@@ -1176,7 +1213,7 @@ EOT;
         ];
 
         $out = '';
-        list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<raw>', '</raw>');
+        list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<tt>', '</tt>');
         if ($p1 !== false) {
             while ($p1 !== false) {
                 $s1 = substr($str, 0, $p1);
@@ -1185,7 +1222,7 @@ EOT;
                 $s3 = substr($str, $p2 + 6);
                 $out .= "$s1$s2";
                 $str = $s3;
-                list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<raw>', '</raw>');
+                list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<tt>', '</tt>');
                 if ($p1 === false) {
                     $s3 = preg_replace(array_keys($smartypants), array_values($smartypants), $s3);
                     $out .= $s3;
@@ -1611,4 +1648,6 @@ EOT;
         }
         return $value;
     } // handleSectionRefs
+
+
 } // MarkdownPlus

@@ -39,7 +39,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     public function __construct()
     {
-        $this->divblockChars = kirby()->option('usility.markdownplus.options')['divblock-chars'] ?? '@%';
+        $this->divblockChars = kirby()->option('usility.markdownplus.options')['divblockChars'] ?? '@%';
         $this->compileCodeBlocks = kirby()->option('usility.markdownplus.options')['compileCodeBlocks'] ?? false;
 
         MdPlusHelper::findAvailableIcons();
@@ -305,7 +305,7 @@ class MarkdownPlus extends MarkdownExtra
     protected function identifyDivBlock(string $line): bool
     {
         // if a line starts with at least 3 marker-chars it is identified as a div-block
-        // fence chars e.g. ':$@' -> defined in PageFactory::$config['divblock-chars']
+        // fence chars e.g. ':$@' -> defined in PageFactory::$config['divblockChars']
         $marker = $line[0]??' ';
         if (str_contains($this->divblockChars, $marker) &&
                 preg_match("/^$marker{3,10}\s+\S/", $line)) {

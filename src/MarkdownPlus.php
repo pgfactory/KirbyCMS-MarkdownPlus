@@ -2,7 +2,6 @@
 namespace Usility\MarkdownPlus;
 
 use cebe\markdown\MarkdownExtra;
-use Usility\PageFactory\PageFactory as PageFactory;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
 
@@ -18,6 +17,9 @@ include_once __DIR__ . '/MdPlusHelper.php';
  // HTML tags that must not have a closing tag:
 const MDPMD_SINGLETON_TAGS =   'img,input,br,hr,meta,embed,link,source,track,wbr,col,area';
 const DEFAULT_TABULATOR_WIDTH = '6em';
+const INLINE_ELEMENTS = "a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,map,object,'.
+'output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,";
+  // 'skip' is a pseudo tag used by MarkdownPlus.
 
 
 class MarkdownPlus extends MarkdownExtra
@@ -27,10 +29,8 @@ class MarkdownPlus extends MarkdownExtra
     private static int $tabulatorInx    = 1;
 
     private string $divblockChars;
+    private bool $compileCodeBlocks;
     private bool $isParagraphContext;
-    private string $inlineTags = ',a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,'.
-            'map,object,output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,';
-    // 'skip' is a pseudo tag used by MarkdownPlus.
     private string $sectionIdentifier;
     private bool $removeComments;
     private static $lang;
@@ -39,11 +39,9 @@ class MarkdownPlus extends MarkdownExtra
      */
     public function __construct()
     {
-        if (class_exists('PageFactory')) {
-            $this->divblockChars = PageFactory::$config['divblock-chars'] ?? '@%';
-        } else {
-            $this->divblockChars = kirby()->option('usility.markdownplus.options')['divblock-chars'] ?? '@%';
-        }
+        $this->divblockChars = kirby()->option('usility.markdownplus.options')['divblock-chars'] ?? '@%';
+        $this->compileCodeBlocks = kirby()->option('usility.markdownplus.options')['compileCodeBlocks'] ?? false;
+
         MdPlusHelper::findAvailableIcons();
 
         $lang = kirby()->language();
@@ -74,7 +72,7 @@ class MarkdownPlus extends MarkdownExtra
 
 
     /**
-     * Compiles string on non-block level, i.e. like inside a paragraph
+     * Compiles inline level string, i.e. like inside a paragraph
      * @param string $str
      * @param bool $omitPWrapperTag
      * @return string
@@ -91,17 +89,6 @@ class MarkdownPlus extends MarkdownExtra
         $html = parent::parseParagraph($str);
         return $this->postprocess($html, $omitPWrapperTag);
     } // compile
-
-
-    /**
-     * Compiles a markdown string to HTML without pre- and postprocessing
-     * @param string $str
-     * @return string
-     */
-    public function compileStr(string $str): string
-    {
-        return parent::parse($str);
-    } // compileStr
 
 
 
@@ -317,9 +304,11 @@ class MarkdownPlus extends MarkdownExtra
      */
     protected function identifyDivBlock(string $line): bool
     {
-        // if a line starts with at least 3 colons it is identified as a div-block
+        // if a line starts with at least 3 marker-chars it is identified as a div-block
         // fence chars e.g. ':$@' -> defined in PageFactory::$config['divblock-chars']
-        if (preg_match("/^[$this->divblockChars]{3,10}\s+\S/", $line)) {
+        $marker = $line[0]??' ';
+        if (str_contains($this->divblockChars, $marker) &&
+                preg_match("/^$marker{3,10}\s+\S/", $line)) {
             return true;
         }
         return false;
@@ -362,20 +351,24 @@ class MarkdownPlus extends MarkdownExtra
         $attrs = MdPlusHelper::parseInlineBlockArguments($rest);
 
         $tag = $attrs['tag'];
-        if (stripos($this->inlineTags, ",$tag,") !== false) {
+        $isInlineTag = str_contains(INLINE_ELEMENTS, ",$tag,");
+        if ($isInlineTag) {
             if ($attrs['literal'] === null) {
                 $attrs['literal'] = true;
             }
         }
 
-        $block['tag'] = $tag ?: '';
+        $block['tag'] = $tag;
         $block['attributes'] = $attrs['htmlAttrs'];
         $block['lang'] = $attrs['lang'];
         $block['literal'] = $attrs['literal'];
         $block['meta'] = '';
+        $block['inline'] = $isInlineTag;
 
         // consume all lines until end-tag, e.g. @@@
-        for($i = $current + 1, $count = count($lines); $i < $count; $i++) {
+        $count = count($lines);
+        $content = '';
+        for($i = $current + 1; $i < $count; $i++) {
             $line = $lines[$i];
             if (preg_match("/^($pattern)\s*(.*)/", $line, $m)) { // it's a potential fence line
                 $fenceEndCandidate = $m[1];
@@ -396,20 +389,27 @@ class MarkdownPlus extends MarkdownExtra
                     }
                 }
             }
-            $block['content'][] = $line;
+            $content .= "$line\n";
         }
 
-        $content = implode("\n", $block['content']);
-        unset($block['content']);
-        if ($block['literal']) {
-            $block['content'][0] = MdPlusHelper::shieldStr($content);
+        if ($content) {
+            if ($block['literal']) {
+                $block['content'][0] = MdPlusHelper::shieldStr($content, 'block');
 
-        } elseif ($attrs['inline']){
-            $content = $this->compileEmbeddedDivBlock($content);
-            $block['content'][0] = self::compileParagraph($content, true);
+            } elseif ($attrs['inline'] || $isInlineTag) {
+                $content = $this->compileEmbeddedDivBlock($content);
+                $content = self::compileParagraph($content, true);
+                $block['content'][0] = MdPlusHelper::shieldStr($content, 'inline');
 
+            } elseif (preg_match('/[^a-zA-Z0-9\s.,]/', $content)) {
+                // shield and md-compile after unshielding:
+                $block['content'][0] = MdPlusHelper::shieldStr($content, 'md');
+
+            } else {
+                $block['content'][0] = $content;
+            }
         } else {
-            $block['content'][0] = MdPlusHelper::shieldStr($content, true);
+            $block['content'][0] = '';
         }
         return [$block, $i];
     } // consumeDivBlock
@@ -426,7 +426,9 @@ class MarkdownPlus extends MarkdownExtra
         $str = '';
         foreach ($lines as $line) {
             if ($block === false) {
-                if (preg_match("/([$this->divblockChars]{3,10})(.*)/",$line, $m)) {
+                $marker = $line[0]??' ';
+                if (str_contains($this->divblockChars, $marker) &&
+                    preg_match("/^$marker{3,10}(.*)/", $line, $m)) {
                     $fence = $m[1];
                     $l = strlen($fence);
                     $block = '';
@@ -473,12 +475,18 @@ class MarkdownPlus extends MarkdownExtra
             return $out;
         }
 
+
         if (($tag === '') && !$attrs) {
             return $out;
         } else {
             $tag = $tag?: 'div';
             $_tag = str_contains(MDPMD_SINGLETON_TAGS, $tag)? '': "</$tag>";
-            return "\n\n<$tag$attrs>\n$out$_tag<!-- $tag$attrs -->\n\n\n";
+
+            if ($block['inline']) {
+                return "<$tag$attrs>$out$_tag";
+            } else {
+                return "\n\n<$tag$attrs>\n$out\n$_tag<!-- $tag$attrs -->\n\n\n";
+            }
         }
     } // renderDivBlock
 
@@ -1157,6 +1165,7 @@ EOT;
         // check for kirbytags, get them compiled:
         $str = $this->handleKirbyTags($str);
 
+        $str = $this->_compileCodeBlocks($str);
 
         // handle smartypants:
         if (kirby()->option('smartypants')) {
@@ -1170,7 +1179,7 @@ EOT;
 
         $str = $this->catchAndInjectTagAttributes($str); // ... {: .cls}
 
-        $str = MdPlusHelper::unshieldStr($str, true);
+        $str = MdPlusHelper::unshieldStr($str);
 
         $str = str_replace(['<literal>','</literal>'], '', $str);
 
@@ -1332,9 +1341,9 @@ EOT;
         // case string contains no leading HTML tag -> wrap it:
         } elseif (!preg_match('/(?<!\\\)<\w+/', $str)) {
             if ($this->isParagraphContext) {
-                $str = "<div>$str</div>";
-            } else {
                 $str = "<span>$str</span>";
+            } else {
+                $str = "<div>$str</div>";
             }
         }
 
@@ -1481,9 +1490,6 @@ EOT;
             $out = MdPlusHelper::shieldStr($out);
             $out = "<pre>$out</pre>";
         }
-        if (!($args['mdCompile']??true)) {
-            $out = MdPlusHelper::shieldStr($out);
-        }
         return $out;
     } // handleInclude
 
@@ -1498,53 +1504,114 @@ EOT;
      */
     private function includeFile(string $files, array $args = []): string
     {
-        $out = '';
-        $mdCompileOverride = $args['mdCompile']??null;
         $files = trim($files);
+        if (str_starts_with($files, 'http')) {
+            return $this->renderIframe($files);
+        }
+
+        $dir = $this->determineFilesToInclude($files, $args['exclude']??null);
+        if (!$dir) {
+            return '';
+            //throw new Exception("Error: no files found for '$files'");
+        }
+
+        list($out, $i) = $this->doIncludeFiles($dir);
+
+        // if multiple files, wrap each in a <section tag (unless option 'literal')
+        if (!($args['literal']??false) && (sizeof($dir) > 1)) {
+            $tag = $args['wrapperTag'] ?? 'section';
+            $customClass = $args['class'] ?? '';
+            $class = ' class="mdp-section-' . ($i + 1) . " $customClass\"";
+            $str = <<<EOT
+
+
+<$tag$class>
+$out</$tag>
+
+
+EOT;
+        } else {
+            if ($args['literal']??false) {
+                $str = htmlentities($out);
+            } else {
+                $str = "\n\n$out\n\n";
+            }
+        }
+        return $str;
+    } // includeFile
+
+
+    /**
+     * Helper for includeFile()
+     * @param string $files
+     * @return string
+     */
+    private function renderIframe(string $files): string
+    {
+        $str = <<<EOT
+
+<iframe src='$files' class="mdp-iframe"></iframe>
+
+EOT;
+
+        return $str;
+    } // renderIframe
+
+
+    /**
+     * Helper for includeFile()
+     * @param string $files
+     * @param $exclude    regex pattern to identify what should be excluded
+     * @return string[]
+     */
+    private function determineFilesToInclude(string $files, mixed $exclude = null): array
+    {
         if (!str_contains($files, '/')) {
-            $files = page()->root().'/'.$files;
+            $files = page()->root() . '/' . $files;
         }
         if (is_file($files)) {
             $dir = [$files];
         } else {
-            $exclude = $args['exclude']??null;
             $dir = MdPlusHelper::getDir($files, $exclude);
         }
+        return $dir;
+    } // determineFilesToInclude
+
+
+    /**
+     * Helper for includeFile()
+     * @param array $dir
+     * @return array
+     * @throws InvalidArgumentException
+     */
+    private function doIncludeFiles(array $dir): array
+    {
+        $out = '';
         foreach ($dir as $i => $file) {
-            if (!str_contains(',txt,md,html,', MdPlusHelper::fileExt($file))) {
-                throw new Exception("Error: unsupported file type '$file'");
-            }
             $str = MdPlusHelper::loadFile($file, 'cstyle');
             if (!file_exists($file)) {
                 throw new Exception("Error: file '$file' not found for including.");
             }
-            if ((($mdCompileOverride === null) && (MdPlusHelper::fileExt($file) === 'md')) || $mdCompileOverride) {
-                $str = $this->compile($str);
-                $str = MdPlusHelper::shieldStr($str);
-            }
-            if (!($args['literal']??false) && (sizeof($dir) > 1)) {
-                $tag = $args['wrapperTag'] ?? 'section';
-                $customClass = $args['class'] ?? '';
-                $class = ' class="mdp-section-' . ($i + 1) . " $customClass\"";
-                $str = <<<EOT
+            $ext = MdPlusHelper::fileExt($file);
+            if ($ext === 'txt') {
+                $str = "<pre>$str</pre>";
+                $out .= MdPlusHelper::shieldStr($str, 'block') . "\n";
 
-
-<$tag$class>
-$str</$tag>
-
-
-EOT;
+            } elseif ($ext === 'html') {
+                $str = MdPlusHelper::removeHtmlComments($str);
+                list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<body', '</body>');
+                $p1 = strpos($str, '>', $p1) + 1;
+                $str = substr($str, $p1, ($p2 - $p1));
+                $out .= MdPlusHelper::shieldStr($str, 'block') . "\n";
+            } elseif ($ext === 'md') {
+                $out .= MdPlusHelper::shieldStr($str, 'md') . "\n";
             } else {
-                if ($args['literal']??false) {
-                    $str = htmlentities($str);
-                } else {
-                    $str = "\n\n$str\n\n";
-                }
+                $out .= MdPlusHelper::shieldStr($str, 'block') . "\n";
             }
-            $out .= $str;
         }
-        return $out;
-    } // includeFile
+        return array($out, $i);
+    } // doIncludeFiles
+
 
 
     /**
@@ -1649,5 +1716,25 @@ EOT;
         return $value;
     } // handleSectionRefs
 
+
+    /**
+     * If config option 'compileCodeBlocks' active, parses output, finds <code> elements and
+     * applies md-compilation to the content -> permits to format code-blocks, e.g. highlight
+     * @param string $str
+     * @return string
+     */
+    private function _compileCodeBlocks(string $str): string
+    {
+        if ($this->compileCodeBlocks) {
+            if (preg_match_all('|<code>(.*?)</code>|ms', $str, $m)) {
+                foreach ($m[1] as $i => $value) {
+                    $value = parent::parseParagraph($value);
+                    $value = "<code>$value</code>";
+                    $str = str_replace($m[0][$i], $value, $str);
+                }
+            }
+        }
+        return $str;
+    } // _compileCodeBlocks
 
 } // MarkdownPlus

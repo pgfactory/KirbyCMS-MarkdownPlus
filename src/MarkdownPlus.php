@@ -30,6 +30,8 @@ class MarkdownPlus extends MarkdownExtra
 
     private string $divblockChars;
     private bool $compileCodeBlocks;
+    private bool $enableIcons;
+    private bool $enableSmartypants;
     private bool $isParagraphContext;
     private string $sectionIdentifier;
     private bool $removeComments;
@@ -39,10 +41,15 @@ class MarkdownPlus extends MarkdownExtra
      */
     public function __construct()
     {
-        $this->divblockChars = kirby()->option('usility.markdownplus.options')['divblockChars'] ?? '@%';
-        $this->compileCodeBlocks = kirby()->option('usility.markdownplus.options')['compileCodeBlocks'] ?? false;
+        $options = kirby()->option('usility.markdownplus.options');
+        $this->divblockChars =      $options['divblockChars'] ?? '@%';
+        $this->compileCodeBlocks =  $options['compileCodeBlocks'] ?? true;
+        $this->enableSmartypants =  $options['enableSmartypants'] ?? true;
+        $this->enableIcons =        $options['enableIcons'] ?? true;
 
-        MdPlusHelper::findAvailableIcons();
+        if ($this->enableIcons) {
+            MdPlusHelper::findAvailableIcons();
+        }
 
         $lang = kirby()->language();
         self::$lang = $lang ? $lang->code() : '';
@@ -1096,7 +1103,7 @@ EOT;
      */
     protected function parseIcon(string $markdown): array
     {
-        if (preg_match('/^:(\w+):/', $markdown, $matches)) {
+        if ($this->enableIcons && preg_match('/^:(\w+):/', $markdown, $matches)) {
             if (MdPlusHelper::iconExists($matches[1])) {
                 return [
                     ['icon', $matches[1]],
@@ -1196,6 +1203,9 @@ EOT;
      */
     private function smartypants(string $str): string
     {
+        if (!$this->enableSmartypants) {
+            return $str;
+        }
         $smartypants =    [
                 '/(?<!-)-&gt;/ms'  => '&rarr;',
                 '/(?<!=)=&gt;/ms'  => '&rArr;',

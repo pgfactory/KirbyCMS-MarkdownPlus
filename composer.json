@@ -3,7 +3,7 @@
     "description": "Replaces the built-in Markdown compiler, provides few but powerful extensions",
     "license": "MIT",
     "type": "kirby-plugin",
-    "version": "0.9.3",
+    "version": "0.9.4",
     "authors": [
         {
             "name": "Dieter Stokar",

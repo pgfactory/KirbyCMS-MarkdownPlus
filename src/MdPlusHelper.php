@@ -10,10 +10,15 @@ use Kirby\Exception\InvalidArgumentException;
 const MDPMD_CACHE_PATH =       'site/cache/markdownplus/';
 const MDPMD_MKDIR_MASK =       0700;
 const MDP_LOGS_PATH =          'site/logs/';
-
+const BLOCK_SHIELD =           'div shielded';
+const INLINE_SHIELD =          'span shielded';
+const MD_SHIELD =              'span md';
 
 class MdPlusHelper
 {
+    /**
+     * @var array
+     */
     private static array $availableIcons = [];
 
 
@@ -25,7 +30,13 @@ class MdPlusHelper
      */
     public static function getDir(string $pat, mixed $exclude = null): array
     {
-        $exclude = ($exclude ===null) ? '-_#' : '';
+        if ($exclude === null) {
+            $exclude = '^[-_#]';
+        } elseif (preg_match_all('/@#(\d+);/', $exclude, $m)) {
+            foreach ($m[1] as $i => $ascii) {
+                $exclude = str_replace($m[0][$i], chr($m[1][$i]), $exclude);
+            }
+        }
         if (!str_contains($pat, '{')) {
             if (str_contains($pat, '*')) {
                 $files = glob($pat);
@@ -41,7 +52,7 @@ class MdPlusHelper
         // exclude unwanted files, ie starting with char contained in $exclude:
         foreach ($files as $i => $item) {
             $basename = basename($item);
-            if (!$basename || ($exclude && str_contains($exclude, $basename[0]))) {
+            if (!$basename || ($exclude && preg_match("/$exclude/", $basename[0]))) {
                 unset($files[$i]);
             }
             if (is_dir($item)) {
@@ -143,15 +154,18 @@ class MdPlusHelper
      * Shields a string from the markdown compiler, optionally instructing the unshielder to run the result through
      * the md-compiler separately.
      * @param string $str
-     * @param bool $mdCompile
+     * @param mixed $options     'md' or 'inlineLevel' or 'blocklevel' (= default)
      * @return string
      */
-    public static function shieldStr(string $str, bool $mdCompile = false): string
+    public static function shieldStr(string $str, mixed $options = false): string
     {
-        if ($mdCompile) {
-            return '<md>' . base64_encode($str) . '</md>';
+        $ch1 = $options[0]??'';
+        if ($ch1 === 'm') {
+            return '<'.MD_SHIELD.'>' . base64_encode($str) . '</'.MD_SHIELD.'>';
+        } elseif ($ch1 === 'i') {
+            return '<'.INLINE_SHIELD.'>' . base64_encode($str) . '</'.INLINE_SHIELD.'>';
         } else {
-            return '<raw>' . base64_encode($str) . '</raw>';
+            return '<'.BLOCK_SHIELD.'>' . base64_encode($str) . '</'.BLOCK_SHIELD.'>';
         }
     } // shieldStr
 
@@ -163,24 +177,44 @@ class MdPlusHelper
      * @return string
      * @throws Exception
      */
-    public static function unshieldStr(string $str, bool $unshieldLiteral = false): string
+    public static function unshieldStr(string $str, bool $unshieldLiteral = null): string
     {
-        if ($unshieldLiteral && preg_match_all('|<raw>(.*?)</raw>|m', $str, $m)) {
-            foreach ($m[1] as $i => $item) {
-                $literal = base64_decode($m[1][$i]);
-                $str = str_replace($m[0][$i], $literal, $str);
+        if ($unshieldLiteral !== false) {
+            $str = preg_replace('#(&lt;|<)(/?)('.INLINE_SHIELD.'|'.BLOCK_SHIELD.'|'.MD_SHIELD.')(&gt;|>)#', "<$2$3>", $str);
+            if (preg_match_all('/<('.INLINE_SHIELD.'|'.BLOCK_SHIELD.')>(.*?)<\/('.INLINE_SHIELD.'|'.BLOCK_SHIELD.')>/m', $str, $m)) {
+                foreach ($m[2] as $i => $item) {
+                    $literal = base64_decode($m[2][$i]);
+                    $str = str_replace($m[0][$i], $literal, $str);
+                }
             }
         }
-        if (preg_match_all('|<md>(.*?)</md>|m', $str, $m)) {
+        if (preg_match_all('|<'.MD_SHIELD.'>(.*?)</'.MD_SHIELD.'>|m', $str, $m)) {
             foreach ($m[1] as $i => $item) {
-                $mdStr = base64_decode($m[1][$i]);
-                $md = new MarkdownPlus();
-                $html = $md->compile($mdStr);
+                $md = base64_decode($m[1][$i]);
+                $html = self::compileMarkdown($md);
                 $str = str_replace($m[0][$i], $html, $str);
             }
         }
         return $str;
     } // unshieldStr
+
+
+    /**
+     * @param string $mdStr
+     * @param bool $asParagraph
+     * @return string
+     * @throws Exception
+     */
+    private static function compileMarkdown(string $mdStr, bool $asParagraph = false): string
+    {
+        $md = new MarkdownPlus();
+        if ($asParagraph) {
+            $html = $md->compileParagraph($mdStr);
+        } else {
+            $html = $md->compile($mdStr);
+        }
+        return $html;
+    } // compileMarkdown
 
 
     /**
@@ -200,6 +234,7 @@ class MdPlusHelper
      *  $str = "<div \"u v w\" #id1 .cls1 !lang=de !showtill:2021-11-17T10:18 color:red; !literal !off lorem ipsum aria-live=\"polite\" .cls.cls2 'dolor dada' data-tmp='x y'";
      * @param string $str
      * @return array
+     * @throws Exception
      */
     public static function parseInlineBlockArguments(string $str): array
     {
@@ -209,85 +244,79 @@ class MdPlusHelper
 
         $str = str_replace('&lt;', '<', $str);
 
-        // catch quoted elements:
-        if (preg_match_all('/(?<!=) (["\']) (.*?) \1/x', $str, $m)) {
-            foreach ($m[2] as $i => $t) {
-                $text = $text? "$text $t": $t;
-                $str = str_replace($m[0][$i], '', $str);
-            }
-        }
+        // parse argument string, element by element:
+        while ($str) {
+            $str = ltrim($str);
+            $c1 = $str[0];
+            if (ctype_alpha($c1)) {
 
-        // catch attributes with quoted args:
-        if (preg_match_all('/([=!\w-]+) = \' (.+?)  \'/x', $str, $m)) {
-            foreach ($m[2] as $i => $t) {
-                $ch1 = $m[1][$i][0];
-                if (($ch1 === '!') || ($ch1 === '=')){
-                    continue;
-                }
-                $attr[ $m[1][$i] ] = $t;
-                $str = str_replace($m[0][$i], '', $str);
-            }
-        }
-        if (preg_match_all('/([=!\w-]+) = " (.+?)  "/x', $str, $m)) {
-            foreach ($m[2] as $i => $t) {
-                $ch1 = $m[1][$i][0];
-                if (($ch1 === '!') || ($ch1 === '=')){
-                    continue;
-                }
-                $attr[ $m[1][$i] ] = $t;
-                $str = str_replace($m[0][$i], '', $str);
-            }
-        }
-        if (preg_match_all('/([=!\w-]+) = (\S+) /x', $str, $m)) {
-            foreach ($m[2] as $i => $t) {
-                $ch1 = $m[1][$i][0];
-                if (($ch1 === '!') || ($ch1 === '=')){
-                    continue;
-                }
-                $attr[ $m[1][$i] ] = $t;
-                $str = str_replace($m[0][$i], '', $str);
-            }
-        }
+                // catch style instructions "xx:yy":
+                if (preg_match('/^([\w-]+):\s*(.*)/', $str, $m)) {
+                    $rest = $m[2];
+                    if (preg_match('/^([\'"]) (.*?) \1 (.*)/x', $rest, $mm)) {
+                        $str = $mm[3];
+                        $style = "$style{$m[1]}:{$mm[2]}; ";
+                    } elseif (preg_match('/^([\w-]+)(.*)/', $rest, $mm)) {
+                        $str = $mm[2];
+                        $style = "$style{$m[1]}:{$mm[1]}; ";
+                    }
 
-        // find style instructions "xx:yy":
-        if (preg_match_all('/([=!\w-]+) : ([^\s;,]+) ;?/x', $str, $m)) {
-            foreach ($m[2] as $i => $t) {
-                $ch1 = $m[1][$i][0];
-                if (($ch1 === '!') || ($ch1 === '=')){
-                    continue;
+                // catch attribute instructions "xx=yy":
+                } elseif (preg_match('/^([\w-]+)=\s*(.*)/', $str, $m)) {
+                    $rest = $m[2];
+                    if (preg_match('/^([\'"]) (.*?) \1 (.*)/x', $rest, $mm)) {
+                        $quote = $mm[1];
+                        $str = $mm[3];
+                        $attr[] = "{$m[1]}=$quote{$mm[2]}$quote";
+                    } elseif (preg_match('/^([\w-]+)(.*)/', $rest, $mm)) {
+                        $str = $mm[2];
+                        $attr[] = "{$m[1]}='{$mm[1]}'";
+                    }
+                } elseif (preg_match('/^(\S*)(.*)/', $str, $m)) {
+                    $str = $m[2];
+                    $text = $text ? "$text {$m[1]}" : $m[1];
+                } else {
+                    $str = '';
                 }
-                $style ="$style{$m[1][$i]}:$t;";
-                $str = str_replace($m[0][$i], '', $str);
+                continue;
             }
-        }
 
-        // catch rest:
-        $str = str_replace(['#','.'],[' #',' .'], $str);
-        $args = self::explodeTrim(' ', $str, true);
-        foreach ($args as $arg) {
-            $c1 = $arg[0];
-            $arg1 = substr($arg,1);
+            $str = substr($str,1);
             switch ($c1) {
                 case '<':
-                    $tag = rtrim($arg1, '>');
+                    if (preg_match('/^(\w+)(.*)/', $str, $m)) {
+                        list($_, $tag, $str) = $m;
+                    }
+                    $tag = rtrim($tag, '>');
                     break;
                 case '#':
-                    $id = $arg1;
+                    if (preg_match('/^([\w-]+)(.*)/', $str, $m)) {
+                        list($_, $id, $str) = $m;
+                    }
                     break;
                 case '.':
-                    $arg1 = str_replace('.', ' ', $arg1);
-                    $class = $class? "$class $arg1" : $arg1;
+                    if (preg_match('/^([\w-]+)(.*)/', $str, $m)) {
+                        list($_, $class1, $str) = $m;
+                        $class = $class? "$class $class1" : $class1;
+                    }
                     break;
                 case '!':
-                    self::_parseMetaCmds($arg1, $lang, $literal, $inline, $style, $tag);
+                    $str = self::_parseMetaCmds($str, $lang, $literal, $inline, $style, $tag);
                     break;
                 case '"':
-                    $t = rtrim($arg1, '"');
-                    $text = $text ? "$text $t" : $t;
+                    if (($p = strpos($str, '"')) !== false) {
+                        $t = substr($str, 0, $p-1);
+                        $str = substr($str, $p+1);
+                        $text = $text ? "$text $t" : $t;
+                    }
+
                     break;
                 case "'":
-                    $t = rtrim($arg1, "'");
-                    $text = $text ? "$text $t" : $t;
+                    if (($p = strpos($str, '\'')) !== false) {
+                        $t = substr($str, 0, $p-1);
+                        $str = substr($str, $p+1);
+                        $text = $text ? "$text $t" : $t;
+                    }
                     break;
             }
         }
@@ -325,17 +354,41 @@ class MdPlusHelper
      * @param string $style
      * @param string $tag
      */
-    private static function _parseMetaCmds(string $arg, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag): void
+    private static function _parseMetaCmds(string $str, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag): string
     {
-        if (preg_match('/^([\w-]+) [=:]? (.*) /x', $arg, $m)) {
-            $arg = strtolower($m[1]);
-            $param = $m[2];
-            if ($arg === 'literal') {
+        if (preg_match('/^([\w-]+) [=:]? (.*) /x', $str, $m)) {
+            $cmd = strtolower($m[1]);
+            $str = ltrim($m[2]);
+            $arg = '';
+            if (preg_match('/^(\S+)\s*(.*)/', $str, $m)) {
+                list($_, $arg, $str) = $m;
+            }
+            if ($cmd === 'literal') {
                 $literal = true;
-            } elseif ($arg === 'inline') {
+
+            } elseif ($cmd === 'user') {
+                $admitted = Permission::evaluate("user=$arg");
+                if (!$admitted) {
+                    $tag = 'skip';
+                }
+
+            } elseif ($cmd === 'role') {
+                $admitted = Permission::evaluate("role=$arg");
+                if (!$admitted) {
+                    $tag = 'skip';
+                }
+
+            } elseif ($cmd === 'visible') {
+                $admitted = Permission::evaluate("$arg");
+                if (!$admitted) {
+                    $tag = 'skip';
+                }
+
+            } elseif ($cmd === 'inline') {
                 $inline = true;
-            } elseif ($arg === 'lang') {
-                $lang = $param;
+
+            } elseif ($cmd === 'lang') {
+                $lang = $arg;
                 if (!kirby()->language()) {
                     throw new \Exception("Warning: no language is active or defined while using MarkdownPlus option '!lang=xy'. -> You need to configure languages.");
                 }
@@ -343,17 +396,20 @@ class MdPlusHelper
                     $tag = 'skip';
                     $style = $style? " $style display:none;" : 'display:none;';
                 }
-            } elseif (($arg === 'off') || (($arg === 'visible') && ($param !== 'true')))  {
+
+            } elseif (($cmd === 'off') || (($cmd === 'visible') && ($arg !== 'true')))  {
                 $style = $style? " $style display:none;" : 'display:none;';
-            } elseif ($arg === 'showtill') {
-                $t = strtotime($param) - time();
+
+            } elseif ($cmd === 'showtill') {
+                $t = strtotime($arg) - time();
                 if ($t < 0) {
                     $lang = 'none';
                     $tag = 'skip';
                     $style = $style? " $style display:none;" : 'display:none;';
                 }
-            } elseif ($arg === 'showfrom') {
-                $t = strtotime($param) - time();
+
+            } elseif ($cmd === 'showfrom') {
+                $t = strtotime($arg) - time();
                 if ($t > 0) {
                     $lang = 'none';
                     $tag = 'skip';
@@ -361,6 +417,7 @@ class MdPlusHelper
                 }
             }
         }
+        return $str;
     } // _parseMetaCmds
 
 
@@ -389,9 +446,7 @@ class MdPlusHelper
             $htmlAttrArray['style'] = $style;
         }
         if ($attr) {
-            foreach ($attr as $k => $v) {
-                $out .= " $k='$v'";
-            }
+            $out .= ' '.implode(' ', $attr);
             $htmlAttrArray = array_merge($htmlAttrArray, $attr);
         }
         return [$out, $htmlAttrArray];
@@ -685,6 +740,26 @@ class MdPlusHelper
 
 
     /**
+     * @param string $str
+     * @return string
+     * @throws Exception
+     */
+    public static function removeHtmlComments(string $str): string
+    {
+        list($p1, $p2) = self::strPosMatching($str,0, '<!--', '-->');
+        while($p1 !== false) {
+            if ($p2) {
+                $str = substr($str, 0, $p1).substr($str,$p2+3);
+            } else {
+                $str = substr($str, 0, $p1);
+            }
+            list($p1, $p2) = self::strPosMatching($str,$p1+3, '<!--', '-->');
+        }
+        return $str;
+    } // removeHtmlComments
+
+
+    /**
      * Returns file extension of a filename.
      * @param string $file0
      * @param bool $reverse       Returns path&filename without extension
@@ -822,6 +897,8 @@ class MdPlusHelper
      * @throws InvalidArgumentException
      * @throws Exception
      */
+
+
     public static function parseArgumentStr(string $str, string $delim = ','): array
     {
         // terminate if string empty:
@@ -834,8 +911,10 @@ class MdPlusHelper
             return [ $str ];
         }
 
-        // if string starts with { we assume it's json:
-        if (($str[0] === '{') && (!str_starts_with($str, '<raw>')) && (!str_starts_with($str, '{md{'))) {
+        // if string starts with { we assume it's "non-relaxed" json:
+        if (($str[0] === '{') && !str_contains($str, '<'.INLINE_SHIELD.'>') &&
+            !str_contains($str, '<'.BLOCK_SHIELD.'>') &&
+            !str_contains($str, '{md{')) {
             return Json::decode($str);
         }
 
@@ -848,39 +927,34 @@ class MdPlusHelper
             $rest = rtrim($mm[1], " \t\n");
         }
 
-        $yaml = '';
+        $json = '';
         $counter = 100;
+        $index = 0;
         while ($rest && ($counter-- > 0)) {
             $key = self::parseArgKey($rest, $delim);
             $ch = ltrim($rest);
             $ch = $ch[0]??'';
             if ($ch !== ':') {
-                $yaml .= "- $key\n";
+                $json .= "\"$index\": $key,";
                 $rest = ltrim($rest, " $delim\n");
             } else {
                 $rest = ltrim(substr($rest, 1));
                 $value = self::parseArgValue($rest, $delim);
-                if (trim($value) !== '') {
-                    $yaml .= "$key: $value\n";
-                } else {
-                    $yaml .= "$key:\n";
-                }
+                $json .= "$key: $value,";
             }
+            $index++;
         }
 
-        $options = Yaml::decode($yaml);
-
-        // case a value was written in '{...}' notation -> unpack:
-        if (str_contains($yaml, '<raw>')) {
-            foreach ($options as $key => $value) {
-                if (str_starts_with($value, '<raw>')) {
-                    $options[$key] = self::unshieldStr($value, true);
-                }
-            }
+        $json = rtrim($json, ',');
+        $json = '{'.$json.'}';
+        $options = json_decode($json, true);
+        if ($options === null) {
+            $options = [];
         }
 
         return $options;
     } // parseArgumentStr
+
 
 
     /**
@@ -889,7 +963,7 @@ class MdPlusHelper
      * @param string $delim
      * @return string
      */
-    private static function parseArgKey(string &$rest, string $delim): string
+    public static function parseArgKey(string &$rest, string $delim): string
     {
         $key = '';
         $rest = ltrim($rest);
@@ -905,13 +979,19 @@ class MdPlusHelper
             // case naked key or value:
         } else {
             // case value without key:
-            $pattern = "[^$delim\n:]+";
-            if (preg_match("/^ ($pattern) (.*) /xms", $rest, $m)) {
+            if (preg_match('|^(https?://\S*)(.*)|', $rest, $m)) {
                 $key = $m[1];
                 $rest = $m[2];
+            } else {
+                $pattern = "[^$delim\n:]+";
+                if (preg_match("/^ ($pattern) (.*) /xms", $rest, $m)) {
+                    $key = $m[1];
+                    $rest = $m[2];
+                }
             }
         }
-        return "'$key'";
+        $key = preg_replace('/(?<!\\\)"/', '\\"', $key);
+        return "\"$key\"";
     } // parseArgKey
 
 
@@ -920,9 +1000,8 @@ class MdPlusHelper
      * @param string $rest
      * @param string $delim
      * @return string
-     * @throws Exception
      */
-    private static function parseArgValue(string &$rest, string $delim): string
+    public static function parseArgValue(string &$rest, string $delim): mixed
     {
         // case quoted key or value:
         $value = '';
@@ -933,16 +1012,16 @@ class MdPlusHelper
             $pattern = "$ch1 (.*?) $ch1";
             // case 'value' without key:
             if (preg_match("/^ ($pattern) (.*)/xms", $rest, $m)) {
-                $value = $m[1];
+                $value = $m[2];
                 $rest = ltrim($m[3], ', ');
             }
 
-            // case '{'-wrapped value -> shield value from Yaml-compiler (workaround for bug in Yaml-compiler):
+            // case string wrapped in {} -> assume it's propre Json:
         } elseif ($ch1 === '{') {
             $p = self::strPosMatching($rest, 0, '{', '}');
-            $value = substr($rest, $p[0]+1, $p[1]-$p[0]-1);
+            $value = substr($rest, $p[0], $p[1]-$p[0]+1);
             $rest = substr($rest, $p[1]+1);
-            return self::shieldStr($value);
+            return $value;
 
         } else {
             // case value without key:
@@ -952,10 +1031,67 @@ class MdPlusHelper
                 $rest = ltrim($m[2], ', ');
             }
         }
+        $value = self::fixDataType($value);
+        if (is_string($value)) {
+            $value = '"' . trim($value) . '"';
+        } elseif (is_bool($value)) {
+            $value = $value? 'true': 'false';
+        }
         $pattern = "^[$delim\n]+";
         $rest = preg_replace("/$pattern/", '', $rest);
         return $value;
     } // parseArgValue
+
+
+    /**
+     * @param string $value
+     * @return mixed
+     */
+    private static function fixDataType(mixed $value): mixed
+    {
+        if (!is_string($value)) {
+            return $value;
+        }
+
+        if ($value === '0') { // we must check this before empty because zero is empty
+            return 0;
+        }
+
+        if (empty($value)) {
+            return '';
+        }
+
+        if ($value === 'null') {
+            return null;
+        }
+
+        if ($value === 'undefined') {
+            return null;
+        }
+
+        if ($value === '1') {
+            return 1;
+        }
+
+        if (!preg_match('/[^0-9.]+/', $value)) {
+            if(preg_match('/[.]+/', $value)) {
+                return (double)$value;
+            }else{
+                return (int)$value;
+            }
+        }
+
+        if ($value == 'true') {
+            return true;
+        }
+
+        if ($value == 'false') {
+            return false;
+        }
+
+        return (string)$value;
+    } // fixDataType
+
 
 
     /**
@@ -969,10 +1105,18 @@ class MdPlusHelper
      */
     public static function strPosMatching(string $str, int $p0 = 0, string $pat1 = '{{', string $pat2 = '}}'): array
     {
-
-        if (!$str) {
+        if (!$str || ($p0 === null) || (strlen($str) < $p0)) {
             return [false, false];
         }
+
+        // simple case: both patterns are equal -> no need to check for nested patterns:
+        if ($pat1 === $pat2) {
+            $p1 = strpos($str, $pat1);
+            $p2 = strpos($str, $pat1, $p1+1);
+            return [$p1, $p2];
+        }
+
+        // opening and closing patterns -> need to check for nested patterns:
         self::checkBracesBalance($str, $p0, $pat1, $pat2);
 
         $d = strlen($pat2);

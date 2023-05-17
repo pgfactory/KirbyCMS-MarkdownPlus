@@ -247,7 +247,7 @@ class MdPlusHelper
         // parse argument string, element by element:
         while ($str) {
             $str = ltrim($str);
-            $c1 = $str[0];
+            $c1 = $str[0]??'';
             if (ctype_alpha($c1)) {
 
                 // catch style instructions "xx:yy":

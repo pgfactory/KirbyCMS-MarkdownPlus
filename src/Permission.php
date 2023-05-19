@@ -24,13 +24,16 @@ class Permission
      * @param string $permissionQuery
      * @return bool
      */
-    public static function evaluate(string $permissionQuery): bool
+    public static function evaluate(string $permissionQuery, bool $allowOnLocalhost = true): bool
     {
         $admission = false;
+        if ($permissionQuery === 'noone') {
+            return false;
+        }
 
         // handle special option '|localhost':
         if (str_contains($permissionQuery, 'localhost')) {
-            if (isLocalhost()) {
+            if (isLocalhost() && $allowOnLocalhost) {
                 return true;
             }
             $permissionQuery = str_replace('|localhost', '', $permissionQuery);

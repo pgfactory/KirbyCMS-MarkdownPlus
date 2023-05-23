@@ -1269,7 +1269,10 @@ EOT;
     {
         $p = 0;
         while ($p=strpos($str, '\\', $p)) {
-            $ch = $str[$p+1];
+            $ch = $str[$p+1]??'';
+            if (!$ch) {
+                break;
+            }
             if ($ch === "\n") {
                 $unicode = '<br>';
             } else {

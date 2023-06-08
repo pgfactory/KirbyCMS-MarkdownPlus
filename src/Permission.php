@@ -40,7 +40,7 @@ class Permission
         }
 
         $permissionQuery = strtolower($permissionQuery);
-        if ($permissionQuery === 'anybody') {
+        if ($permissionQuery === 'anybody' || $permissionQuery === 'anyone') {
             return true;
         }
 

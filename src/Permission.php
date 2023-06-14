@@ -52,7 +52,7 @@ class Permission
             $role = strtolower($user->role()->name());
         }
         $loggedIn = (bool)$user??false;
-        if ($permissionQuery === 'loggedin') {
+        if (str_contains($permissionQuery, 'loggedin')) {
             $admission = $loggedIn;
 
         } elseif (str_contains(',notloggedin,anonymous,nobody', ",$permissionQuery")) {

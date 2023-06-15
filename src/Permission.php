@@ -54,7 +54,7 @@ class Permission
             }
         }
 
-        self::checkPageAccessCode();
+        $res = self::checkPageAccessCode();
 
         $name = $role = $email = false;
         $user = kirby()->user();
@@ -64,7 +64,7 @@ class Permission
             $email = strtolower($credentials['email']??'');
             $role = strtolower($user->role()->name());
         }
-        $loggedIn = (bool)$user??false;
+        $loggedIn = ($user??false) || $res;
         if (str_contains($permissionQuery, 'loggedin')) {
             $admission = $loggedIn;
 

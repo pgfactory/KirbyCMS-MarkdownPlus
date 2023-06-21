@@ -30,6 +30,10 @@ class Permission
      */
     public static function evaluate(string $permissionQuery, bool $allowOnLocalhost = true): bool
     {
+        if (!$permissionQuery) {
+            return false;
+        }
+
         $admission = false;
         $permissionQuery = strtolower($permissionQuery);
 

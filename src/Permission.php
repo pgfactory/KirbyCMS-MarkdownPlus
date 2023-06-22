@@ -124,8 +124,8 @@ class Permission
         $page = substr(page()->url(), strlen(site()->url()) + 1) ?: 'home';
         $accessCode = get('a', null);
 
-        // ?a without arg means logout:
-        if (isset($_GET['a']) && !$accessCode) {
+        // ?a without arg or ?a=false or ?a=reset means logout:
+        if (isset($_GET['a']) && (!$accessCode || $accessCode === 'false' || $accessCode === 'reset')) {
             $session->remove("pfy.access.$page");
 
         // check whether access already granted before:

@@ -39,9 +39,10 @@ class Permission
 
         // special case 'nobody' or 'noone' -> deny in any case:
         if ($permissionQuery === 'nobody' || $permissionQuery === 'noone') {
-            if (!$allowOnLocalhost) { // exception: if overridden e.g. from PageFactory::$debug
-                return false;
-            }
+            return false;
+//            if (!$allowOnLocalhost) { // exception: if overridden e.g. from PageFactory::$debug
+//                return false;
+//            }
 
         // special case 'anybody' or 'anyone' -> always grant access:
         } elseif ($permissionQuery === 'anybody' || $permissionQuery === 'anyone') {

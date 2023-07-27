@@ -23,6 +23,7 @@ const MDP_LOG_PATH = 'site/logs/';
  */
 class Permission
 {
+    private static bool $accessAlreadyGranted = false;
     /**
      * Evaluates a $permissionQuery against the current visitor's status.
      * @param string $permissionQuery
@@ -110,57 +111,56 @@ class Permission
 
 
     /**
+     *
      * @return bool
      * @throws \Exception
      */
     private static function checkPageAccessCode(): bool
     {
-        // get access codes from meta-file "accessCode:" field:
-        $pageAccessCodes = page()->accesscodes()->value();
-        if (!$pageAccessCodes) {
-            return false; // no access codes defined -> access denied
-        }
-
-        $session = kirby()->session();
-        $page = substr(page()->url(), strlen(site()->url()) + 1) ?: 'home';
-        $accessCode = get('a', null);
-
-        // ?a without arg or ?a=false or ?a=reset means logout:
-        if (isset($_GET['a']) && (!$accessCode || $accessCode === 'false' || $accessCode === 'reset')) {
-            $session->remove("pfy.access.$page");
-
-        // check whether access already granted before:
-        } elseif ($email = $session->get("pfy.access.$page")) {
-            if (is_string($email)) {
-                self::impersonateUser($email);
-            }
-            return true;
-
-        } elseif (!$accessCode) {
+        if (!($_GET['a']??false)) {
             return false; // no access given
         }
+        $submittedAccessCode = get('a', null);
 
-        // prepare defined access codes:
-        $pageAccessCodes = Data::decode($pageAccessCodes, 'YAML');
-        $accessCodes = array_keys($pageAccessCodes);
+        // get access codes from meta-file "accessCode:" resp. "accessCodes:" field:
+        $pageAccessCodes = page()->accesscodes()->value();
+        if (!$pageAccessCodes) {
+            $pageAccessCodes = page()->accesscode()->value();
+            if (!$pageAccessCodes) {
+                return false; // no access codes defined -> access denied
+            }
+        }
 
-        // check whether given code has been defined:
-        if (is_array($accessCodes)) {
-            $found = array_search($accessCode, $accessCodes);
-            if ($found !== false) {
-                // grant access:
-                $name = $pageAccessCodes[$accessCodes[$found]];
-                $email = self::impersonateUser($name);
-                // set session variable for the current page -> grant access to this user if ?a= is omitted:
-                $session->set("pfy.access.$page", $email);
-                self::mylog("AccessCode '$accessCode' validated -> $name admitted on page '$page/'", 'login-log.txt');
-                return true;
-            } else {
-                // deny access, log unsucessfull access attempt:
-                self::mylog("Unknown AccessCode '$accessCode' on page '$page/'", 'login-log.txt');
+        $pageAccessCodes = $pageAccessCodes0 = Data::decode($pageAccessCodes, 'YAML');
+        if (is_array($pageAccessCodes)) {
+            $a = array_keys($pageAccessCodes);
+            if (!is_int(array_pop($a))) {
+                $pageAccessCodes = array_keys($pageAccessCodes);
             }
         } else {
-            throw new \Exception("Error in page access code '_access' (in page's meta file): $accessCode");
+            $pageAccessCodes = [$pageAccessCodes];
+        }
+
+        // check whether given code has been defined:
+        $found = array_search($submittedAccessCode, $pageAccessCodes);
+        $page = substr(page()->url(), strlen(site()->url()) + 1) ?: 'home';
+        if ($found !== false) {
+            if (!self::$accessAlreadyGranted) {
+                if ($email = $pageAccessCodes0[$submittedAccessCode] ?? false) {
+                    if (is_string($email) && preg_match('/\S+@\w+\.\w+/', $email)) {
+                        self::impersonateUser($email);
+                    }
+                    self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page/'", 'login-log.txt');
+                } else {
+                    self::mylog("AccessCode '$submittedAccessCode' validated on page '$page/'", 'login-log.txt');
+                }
+                self::$accessAlreadyGranted = true;
+            }
+            // grant access:
+            return true;
+        } else {
+            // deny access, log unsucessfull access attempt:
+            self::mylog("AccessCode '$submittedAccessCode' rejected on page '$page/'", 'login-log.txt');
         }
         return false; // no access given
     } // checkPageAccessCode

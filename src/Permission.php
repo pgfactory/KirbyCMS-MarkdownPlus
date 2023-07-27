@@ -127,7 +127,7 @@ class Permission
         if (!$pageAccessCodes) {
             $pageAccessCodes = page()->accesscode()->value();
             if (!$pageAccessCodes) {
-                return false; // no access codes defined -> access denied
+                return self::$accessAlreadyGranted;
             }
         }
 

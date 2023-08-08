@@ -41,9 +41,6 @@ class Permission
         // special case 'nobody' or 'noone' -> deny in any case:
         if ($permissionQuery === 'nobody' || $permissionQuery === 'noone') {
             return false;
-//            if (!$allowOnLocalhost) { // exception: if overridden e.g. from PageFactory::$debug
-//                return false;
-//            }
 
         // special case 'anybody' or 'anyone' -> always grant access:
         } elseif ($permissionQuery === 'anybody' || $permissionQuery === 'anyone') {
@@ -53,7 +50,9 @@ class Permission
 
 
         // handle special option 'localhost' -> take session var into account:
-        $debugOverride = (kirby()->session()->get('pfy.debug', null) === false);
+        session_start();
+        $debugOverride = ($_SESSION['pfy.debug']??null) === false;
+        session_abort();
         if (str_contains($permissionQuery, 'localhost')) {
             if (self::isLocalhost() && !$debugOverride && $allowOnLocalhost) {
                 return true;

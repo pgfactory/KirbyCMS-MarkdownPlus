@@ -256,7 +256,7 @@ class MdPlusHelper
                     if (preg_match('/^([\'"]) (.*?) \1 (.*)/x', $rest, $mm)) {
                         $str = $mm[3];
                         $style = "$style{$m[1]}:{$mm[2]}; ";
-                    } elseif (preg_match('/^([\w-]+)(.*)/', $rest, $mm)) {
+                    } elseif (preg_match('/^([^\s;]+)(.*)/', $rest, $mm)) {
                         $str = $mm[2];
                         $style = "$style{$m[1]}:{$mm[1]}; ";
                     }

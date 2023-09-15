@@ -41,7 +41,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     public function __construct()
     {
-        $options = kirby()->option('usility.markdownplus.options');
+        $options = kirby()->option('pgfactory.markdownplus.options');
         $this->divblockChars =      $options['divblockChars'] ?? '@%';
         $this->compileCodeBlocks =  $options['compileCodeBlocks'] ?? true;
         $this->enableSmartypants =  $options['enableSmartypants'] ?? true;
@@ -87,7 +87,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     public function compileParagraph(string $str, bool $omitPWrapperTag = false):string
     {
-        if (!$str) {
+        if (trim($str) === '') {
             return '';
         }
         $this->isParagraphContext = true;

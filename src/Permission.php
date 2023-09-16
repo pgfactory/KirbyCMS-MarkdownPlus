@@ -23,7 +23,8 @@ const MDP_LOG_PATH = 'site/logs/';
  */
 class Permission
 {
-    private static bool $accessAlreadyGranted = false;
+    private static $accessAlreadyGranted = false;
+
     /**
      * Evaluates a $permissionQuery against the current visitor's status.
      * @param string $permissionQuery
@@ -114,12 +115,21 @@ class Permission
      * @return bool
      * @throws \Exception
      */
-    private static function checkPageAccessCode(): bool
+    public static function checkPageAccessCode(): mixed
     {
+        if (self::$accessAlreadyGranted) {
+            return self::$accessAlreadyGranted;
+        }
         if (!($_GET['a']??false)) {
             return false; // no access given
+        } else {
+            $submittedAccessCode = get('a', null);
+            unset($_GET['a']);
         }
-        $submittedAccessCode = get('a', null);
+        if ($user = kirby()->user()) {
+            $username = (string)$user->nameOrEmail();
+            return $username; // already logged in
+        }
 
         // get access codes from meta-file "accessCode:" resp. "accessCodes:" field:
         $pageAccessCodes = page()->accesscodes()->value();
@@ -144,19 +154,23 @@ class Permission
         $found = array_search($submittedAccessCode, $pageAccessCodes);
         $page = substr(page()->url(), strlen(site()->url()) + 1) ?: 'home';
         if ($found !== false) {
+            $res = 'anon';
             if (!self::$accessAlreadyGranted) {
                 if ($email = $pageAccessCodes0[$submittedAccessCode] ?? false) {
                     if (is_string($email) && preg_match('/\S+@\w+\.\w+/', $email)) {
                         self::impersonateUser($email);
+                        $res = kirby()->user($email);
                     }
                     self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page/'", 'login-log.txt');
                 } else {
                     self::mylog("AccessCode '$submittedAccessCode' validated on page '$page/'", 'login-log.txt');
                 }
-                self::$accessAlreadyGranted = true;
+                self::$accessAlreadyGranted = $res;
+            } else {
+                $res = self::$accessAlreadyGranted;
             }
             // grant access:
-            return true;
+            return $res;
         } else {
             // deny access, log unsucessfull access attempt:
             self::mylog("AccessCode '$submittedAccessCode' rejected on page '$page/'", 'login-log.txt');

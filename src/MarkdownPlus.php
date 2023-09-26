@@ -489,7 +489,7 @@ class MarkdownPlus extends MarkdownExtra
 
 
         if (($tag === '') && !$attrs) {
-            return $out;
+            return "$out\n\n";
         } else {
             $tag = $tag?: 'div';
             $_tag = str_contains(MDPMD_SINGLETON_TAGS, $tag)? '': "</$tag>";

@@ -120,13 +120,14 @@ class Permission
         if (self::$accessAlreadyGranted) {
             return self::$accessAlreadyGranted;
         }
+        $user = kirby()->user();
         if (!($_GET['a']??false)) {
-            return false; // no access given
+            return $user; // no access request, return login status
         } else {
             $submittedAccessCode = get('a', null);
             unset($_GET['a']);
         }
-        if ($user = kirby()->user()) {
+        if ($user) {
             $username = (string)$user->nameOrEmail();
             return $username; // already logged in
         }

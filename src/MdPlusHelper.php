@@ -378,7 +378,7 @@ class MdPlusHelper
                     $tag = 'skip';
                 }
 
-            } elseif ($cmd === 'visible') {
+            } elseif ($cmd === 'visible' || $cmd === 'visibility') {
                 $admitted = Permission::evaluate("$arg");
                 if (!$admitted) {
                     $tag = 'skip';
@@ -392,9 +392,8 @@ class MdPlusHelper
                 if (!kirby()->language()) {
                     throw new \Exception("Warning: no language is active or defined while using MarkdownPlus option '!lang=xy'. -> You need to configure languages.");
                 }
-                if (($lang === 'skip') || ($lang === 'none')) {
+                if (($lang === 'skip') || ($lang === 'none') || ($lang !== MarkdownPlus::$lang)) {
                     $tag = 'skip';
-                    $style = $style? " $style display:none;" : 'display:none;';
                 }
 
             } elseif (($cmd === 'off') || (($cmd === 'visible') && ($arg !== 'true')))  {

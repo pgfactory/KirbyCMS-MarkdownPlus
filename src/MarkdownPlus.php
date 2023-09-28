@@ -35,7 +35,7 @@ class MarkdownPlus extends MarkdownExtra
     private bool $isParagraphContext;
     private string $sectionIdentifier;
     private bool $removeComments;
-    private static $lang;
+    public  static $lang;
 
     /**
      */
@@ -1425,11 +1425,9 @@ EOT;
         }
         $rest = substr(trim($line), strlen($tag));
 
-        // handle lang:
-        if ($value = $attrs['lang']??false) {
-            if ($value !== self::$lang) {
-                return '';
-            }
+        // handle tag=skip:
+        if ($attrs['tag'] === 'skip') {
+            return '';
         }
 
         // handle id:

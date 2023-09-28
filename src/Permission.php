@@ -71,11 +71,11 @@ class Permission
             $role = strtolower($user->role()->name());
         }
         $loggedIn = ($user??false) || $res;
-        if (str_contains($permissionQuery, 'loggedin')) {
-            $admission = $loggedIn;
-
-        } elseif (str_contains(',notloggedin,anonymous,nobody', ",$permissionQuery")) {
+        if (str_contains('notloggedin,anon,', $permissionQuery)) {
             $admission = !$loggedIn;
+
+        } elseif (str_contains($permissionQuery, 'loggedin')) {
+            $admission = $loggedIn;
 
         } elseif (preg_match('/^user=(\w+)/', $permissionQuery, $m)) {
             if (($name === $m[1]) || ($m[1] === 'loggedin')) { // explicit user

@@ -1,8 +1,8 @@
 <?php
 
-namespace Usility\MarkdownPlus;
+namespace PgFactory\MarkdownPlus;
 
-use function Usility\PageFactory\isLocalhost;
+//use function PgFactory\PageFactory\isLocalhost;
 use Kirby\Data\Data;
 
 const MDP_LOG_PATH = 'site/logs/';

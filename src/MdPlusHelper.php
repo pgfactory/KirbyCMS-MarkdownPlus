@@ -1,6 +1,6 @@
 <?php
 
-namespace Usility\MarkdownPlus;
+namespace PgFactory\MarkdownPlus;
 
 use Kirby\Data\Yaml as Yaml;
 use Kirby\Data\Json as Json;
@@ -104,7 +104,7 @@ class MdPlusHelper
         if (self::$availableIcons) {
             return;
         }
-        $path = kirby()->option('usility.markdownplus.iconsPath');
+        $path = kirby()->option('pgfactory.markdownplus.iconsPath');
         if (!$path) {
             if (is_dir('site/plugins/pagefactory/assets/icons/')) {
                 $paths[0] = 'site/plugins/pagefactory/assets/icons/';

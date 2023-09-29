@@ -1,5 +1,5 @@
 <?php
-namespace Usility\MarkdownPlus;
+namespace PgFactory\MarkdownPlus;
 
 use cebe\markdown\MarkdownExtra;
 use Exception;
@@ -1038,7 +1038,7 @@ EOT;
         }
 
         $attr = "src:'$src', alt:'$alt', caption:'$caption'";
-        if (function_exists('Usility\\MarkdownPlus\\img')) {
+        if (function_exists('PgFactory\\MarkdownPlus\\img')) {
             $str = $this->processByMacro('img', $attr);
         } elseif ($caption) {
             $str = "<img src='$src' alt='$alt'>";
@@ -1085,7 +1085,7 @@ EOT;
         $linkText = $element[2];
         $title = preg_replace('/^ ([\'"]) (.*) \1 $/x', "$2", $element[3]);
 
-        if (function_exists('Usility\\MarkdownPlus\\link')) {
+        if (function_exists('PgFactory\\MarkdownPlus\\link')) {
             $attr = "url:'$link', ";
             $q = (!str_contains($linkText, "'")) ? "'" : '"';
             $attr .= "text:$q$linkText$q, ";
@@ -1688,7 +1688,7 @@ EOT;
         if (!str_contains($argStr, ',')) {
             $argStr = preg_replace('/(\s\w+:)/', ",$1", $argStr);
         }
-        $macroName = "Usility\\PageFactory\\$macroName";
+        $macroName = "PgFactory\\PageFactory\\$macroName";
         if (function_exists($macroName)) {
             $str = $macroName($argStr);
         } else {

@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'pgfactory/markdownplus',
-        'pretty_version' => '0.9.5',
-        'version' => '0.9.5.0',
-        'reference' => NULL,
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => 'c3582f320c0b33a33e71f515f53ab43346cac5d5',
         'type' => 'kirby-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -29,9 +29,9 @@
             'dev_requirement' => false,
         ),
         'pgfactory/markdownplus' => array(
-            'pretty_version' => '0.9.5',
-            'version' => '0.9.5.0',
-            'reference' => NULL,
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'c3582f320c0b33a33e71f515f53ab43346cac5d5',
             'type' => 'kirby-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

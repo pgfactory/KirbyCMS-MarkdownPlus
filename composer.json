@@ -3,7 +3,7 @@
     "description": "Replaces the built-in Markdown compiler, provides few but powerful extensions",
     "license": "MIT",
     "type": "kirby-plugin",
-    "version": "0.9.4",
+    "version": "0.9.5",
     "authors": [
         {
             "name": "Dieter Stokar",
@@ -13,5 +13,10 @@
     "require": {
         "getkirby/composer-installer": "^1.1",
         "cebe/markdown": "^1.2"
+    },
+    "config": {
+        "allow-plugins": {
+            "getkirby/composer-installer": true
+        }
     }
 }

@@ -9,7 +9,7 @@ Kirby::plugin('pgfactory/markdownplus', [
             if (!$text) {
                 return '';
             }
-            $md = new Usility\MarkdownPlus\MarkdownPlus();
+            $md = new PgFactory\MarkdownPlus\MarkdownPlus();
             return $md->compile($text);
         }
     ]

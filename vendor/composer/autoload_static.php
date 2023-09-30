@@ -11,10 +11,6 @@ class ComposerStaticIniteb051ac0645a930a1668db56260c911d
         array (
             'cebe\\markdown\\' => 14,
         ),
-        'U' => 
-        array (
-            'Usility\\MarkdownPlus\\' => 21,
-        ),
     );
 
     public static $prefixDirsPsr4 = array (
@@ -22,14 +18,33 @@ class ComposerStaticIniteb051ac0645a930a1668db56260c911d
         array (
             0 => __DIR__ . '/..' . '/cebe/markdown',
         ),
-        'Usility\\MarkdownPlus\\' => 
-        array (
-            0 => __DIR__ . '/../..' . '/src',
-        ),
     );
 
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
+        'cebe\\markdown\\GithubMarkdown' => __DIR__ . '/..' . '/cebe/markdown/GithubMarkdown.php',
+        'cebe\\markdown\\Markdown' => __DIR__ . '/..' . '/cebe/markdown/Markdown.php',
+        'cebe\\markdown\\MarkdownExtra' => __DIR__ . '/..' . '/cebe/markdown/MarkdownExtra.php',
+        'cebe\\markdown\\Parser' => __DIR__ . '/..' . '/cebe/markdown/Parser.php',
+        'cebe\\markdown\\block\\CodeTrait' => __DIR__ . '/..' . '/cebe/markdown/block/CodeTrait.php',
+        'cebe\\markdown\\block\\FencedCodeTrait' => __DIR__ . '/..' . '/cebe/markdown/block/FencedCodeTrait.php',
+        'cebe\\markdown\\block\\HeadlineTrait' => __DIR__ . '/..' . '/cebe/markdown/block/HeadlineTrait.php',
+        'cebe\\markdown\\block\\HtmlTrait' => __DIR__ . '/..' . '/cebe/markdown/block/HtmlTrait.php',
+        'cebe\\markdown\\block\\ListTrait' => __DIR__ . '/..' . '/cebe/markdown/block/ListTrait.php',
+        'cebe\\markdown\\block\\QuoteTrait' => __DIR__ . '/..' . '/cebe/markdown/block/QuoteTrait.php',
+        'cebe\\markdown\\block\\RuleTrait' => __DIR__ . '/..' . '/cebe/markdown/block/RuleTrait.php',
+        'cebe\\markdown\\block\\TableTrait' => __DIR__ . '/..' . '/cebe/markdown/block/TableTrait.php',
+        'cebe\\markdown\\inline\\CodeTrait' => __DIR__ . '/..' . '/cebe/markdown/inline/CodeTrait.php',
+        'cebe\\markdown\\inline\\EmphStrongTrait' => __DIR__ . '/..' . '/cebe/markdown/inline/EmphStrongTrait.php',
+        'cebe\\markdown\\inline\\LinkTrait' => __DIR__ . '/..' . '/cebe/markdown/inline/LinkTrait.php',
+        'cebe\\markdown\\inline\\StrikeoutTrait' => __DIR__ . '/..' . '/cebe/markdown/inline/StrikeoutTrait.php',
+        'cebe\\markdown\\inline\\UrlLinkTrait' => __DIR__ . '/..' . '/cebe/markdown/inline/UrlLinkTrait.php',
+        'cebe\\markdown\\tests\\BaseMarkdownTest' => __DIR__ . '/..' . '/cebe/markdown/tests/BaseMarkdownTest.php',
+        'cebe\\markdown\\tests\\GithubMarkdownTest' => __DIR__ . '/..' . '/cebe/markdown/tests/GithubMarkdownTest.php',
+        'cebe\\markdown\\tests\\MarkdownExtraTest' => __DIR__ . '/..' . '/cebe/markdown/tests/MarkdownExtraTest.php',
+        'cebe\\markdown\\tests\\MarkdownOLStartNumTest' => __DIR__ . '/..' . '/cebe/markdown/tests/MarkdownOLStartNumTest.php',
+        'cebe\\markdown\\tests\\MarkdownTest' => __DIR__ . '/..' . '/cebe/markdown/tests/MarkdownTest.php',
+        'cebe\\markdown\\tests\\ParserTest' => __DIR__ . '/..' . '/cebe/markdown/tests/ParserTest.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

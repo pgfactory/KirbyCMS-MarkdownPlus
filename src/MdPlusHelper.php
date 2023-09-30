@@ -1,6 +1,6 @@
 <?php
 
-namespace Usility\MarkdownPlus;
+namespace PgFactory\MarkdownPlus;
 
 use Kirby\Data\Yaml as Yaml;
 use Kirby\Data\Json as Json;
@@ -104,7 +104,7 @@ class MdPlusHelper
         if (self::$availableIcons) {
             return;
         }
-        $path = kirby()->option('usility.markdownplus.iconsPath');
+        $path = kirby()->option('pgfactory.markdownplus.iconsPath');
         if (!$path) {
             if (is_dir('site/plugins/pagefactory/assets/icons/')) {
                 $paths[0] = 'site/plugins/pagefactory/assets/icons/';
@@ -234,6 +234,7 @@ class MdPlusHelper
      *  $str = "<div \"u v w\" #id1 .cls1 !lang=de !showtill:2021-11-17T10:18 color:red; !literal !off lorem ipsum aria-live=\"polite\" .cls.cls2 'dolor dada' data-tmp='x y'";
      * @param string $str
      * @return array
+     * @throws Exception
      */
     public static function parseInlineBlockArguments(string $str): array
     {
@@ -243,85 +244,79 @@ class MdPlusHelper
 
         $str = str_replace('&lt;', '<', $str);
 
-        // catch quoted elements:
-        if (preg_match_all('/(?<!=) (["\']) (.*?) \1/x', $str, $m)) {
-            foreach ($m[2] as $i => $t) {
-                $text = $text? "$text $t": $t;
-                $str = str_replace($m[0][$i], '', $str);
-            }
-        }
+        // parse argument string, element by element:
+        while ($str) {
+            $str = ltrim($str);
+            $c1 = $str[0]??'';
+            if (ctype_alpha($c1)) {
 
-        // catch attributes with quoted args:
-        if (preg_match_all('/([=!\w-]+) = \' (.+?)  \'/x', $str, $m)) {
-            foreach ($m[2] as $i => $t) {
-                $ch1 = $m[1][$i][0];
-                if (($ch1 === '!') || ($ch1 === '=')){
-                    continue;
-                }
-                $attr[ $m[1][$i] ] = $t;
-                $str = str_replace($m[0][$i], '', $str);
-            }
-        }
-        if (preg_match_all('/([=!\w-]+) = " (.+?)  "/x', $str, $m)) {
-            foreach ($m[2] as $i => $t) {
-                $ch1 = $m[1][$i][0];
-                if (($ch1 === '!') || ($ch1 === '=')){
-                    continue;
-                }
-                $attr[ $m[1][$i] ] = $t;
-                $str = str_replace($m[0][$i], '', $str);
-            }
-        }
-        if (preg_match_all('/([=!\w-]+) = (\S+) /x', $str, $m)) {
-            foreach ($m[2] as $i => $t) {
-                $ch1 = $m[1][$i][0];
-                if (($ch1 === '!') || ($ch1 === '=')){
-                    continue;
-                }
-                $attr[ $m[1][$i] ] = $t;
-                $str = str_replace($m[0][$i], '', $str);
-            }
-        }
+                // catch style instructions "xx:yy":
+                if (preg_match('/^([\w-]+):\s*(.*)/', $str, $m)) {
+                    $rest = $m[2];
+                    if (preg_match('/^([\'"]) (.*?) \1 (.*)/x', $rest, $mm)) {
+                        $str = $mm[3];
+                        $style = "$style{$m[1]}:{$mm[2]}; ";
+                    } elseif (preg_match('/^([^\s;]+)(.*)/', $rest, $mm)) {
+                        $str = $mm[2];
+                        $style = "$style{$m[1]}:{$mm[1]}; ";
+                    }
 
-        // find style instructions "xx:yy":
-        if (preg_match_all('/([=!\w-]+) : ([^\s;,]+) ;?/x', $str, $m)) {
-            foreach ($m[2] as $i => $t) {
-                $ch1 = $m[1][$i][0];
-                if (($ch1 === '!') || ($ch1 === '=')){
-                    continue;
+                // catch attribute instructions "xx=yy":
+                } elseif (preg_match('/^([\w-]+)=\s*(.*)/', $str, $m)) {
+                    $rest = $m[2];
+                    if (preg_match('/^([\'"]) (.*?) \1 (.*)/x', $rest, $mm)) {
+                        $quote = $mm[1];
+                        $str = $mm[3];
+                        $attr[] = "{$m[1]}=$quote{$mm[2]}$quote";
+                    } elseif (preg_match('/^([\w-]+)(.*)/', $rest, $mm)) {
+                        $str = $mm[2];
+                        $attr[] = "{$m[1]}='{$mm[1]}'";
+                    }
+                } elseif (preg_match('/^(\S*)(.*)/', $str, $m)) {
+                    $str = $m[2];
+                    $text = $text ? "$text {$m[1]}" : $m[1];
+                } else {
+                    $str = '';
                 }
-                $style ="$style{$m[1][$i]}:$t;";
-                $str = str_replace($m[0][$i], '', $str);
+                continue;
             }
-        }
 
-        // catch rest:
-        $str = str_replace(['#','.'],[' #',' .'], $str);
-        $args = self::explodeTrim(' ', $str, true);
-        foreach ($args as $arg) {
-            $c1 = $arg[0];
-            $arg1 = substr($arg,1);
+            $str = substr($str,1);
             switch ($c1) {
                 case '<':
-                    $tag = rtrim($arg1, '>');
+                    if (preg_match('/^(\w+)(.*)/', $str, $m)) {
+                        list($_, $tag, $str) = $m;
+                    }
+                    $tag = rtrim($tag, '>');
                     break;
                 case '#':
-                    $id = $arg1;
+                    if (preg_match('/^([\w-]+)(.*)/', $str, $m)) {
+                        list($_, $id, $str) = $m;
+                    }
                     break;
                 case '.':
-                    $arg1 = str_replace('.', ' ', $arg1);
-                    $class = $class? "$class $arg1" : $arg1;
+                    if (preg_match('/^([\w-]+)(.*)/', $str, $m)) {
+                        list($_, $class1, $str) = $m;
+                        $class = $class? "$class $class1" : $class1;
+                    }
                     break;
                 case '!':
-                    self::_parseMetaCmds($arg1, $lang, $literal, $inline, $style, $tag);
+                    $str = self::_parseMetaCmds($str, $lang, $literal, $inline, $style, $tag);
                     break;
                 case '"':
-                    $t = rtrim($arg1, '"');
-                    $text = $text ? "$text $t" : $t;
+                    if (($p = strpos($str, '"')) !== false) {
+                        $t = substr($str, 0, $p-1);
+                        $str = substr($str, $p+1);
+                        $text = $text ? "$text $t" : $t;
+                    }
+
                     break;
                 case "'":
-                    $t = rtrim($arg1, "'");
-                    $text = $text ? "$text $t" : $t;
+                    if (($p = strpos($str, '\'')) !== false) {
+                        $t = substr($str, 0, $p-1);
+                        $str = substr($str, $p+1);
+                        $text = $text ? "$text $t" : $t;
+                    }
                     break;
             }
         }
@@ -359,35 +354,61 @@ class MdPlusHelper
      * @param string $style
      * @param string $tag
      */
-    private static function _parseMetaCmds(string $arg, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag): void
+    private static function _parseMetaCmds(string $str, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag): string
     {
-        if (preg_match('/^([\w-]+) [=:]? (.*) /x', $arg, $m)) {
-            $arg = strtolower($m[1]);
-            $param = $m[2];
-            if ($arg === 'literal') {
+        if (preg_match('/^([\w-]+) [=:]? (.*) /x', $str, $m)) {
+            $cmd = strtolower($m[1]);
+            $str = ltrim($m[2]);
+            $arg = '';
+            if (preg_match('/^(\S+)\s*(.*)/', $str, $m)) {
+                list($_, $arg, $str) = $m;
+            }
+            if ($cmd === 'literal') {
                 $literal = true;
-            } elseif ($arg === 'inline') {
+
+            } elseif ($cmd === 'user') {
+                $admitted = Permission::evaluate("user=$arg");
+                if (!$admitted) {
+                    $tag = 'skip';
+                }
+
+            } elseif ($cmd === 'role') {
+                $admitted = Permission::evaluate("role=$arg");
+                if (!$admitted) {
+                    $tag = 'skip';
+                }
+
+            } elseif ($cmd === 'visible' || $cmd === 'visibility') {
+                $admitted = Permission::evaluate("$arg");
+                if (!$admitted) {
+                    $tag = 'skip';
+                }
+
+            } elseif ($cmd === 'inline') {
                 $inline = true;
-            } elseif ($arg === 'lang') {
-                $lang = $param;
+
+            } elseif ($cmd === 'lang') {
+                $lang = $arg;
                 if (!kirby()->language()) {
                     throw new \Exception("Warning: no language is active or defined while using MarkdownPlus option '!lang=xy'. -> You need to configure languages.");
                 }
-                if (($lang === 'skip') || ($lang === 'none')) {
+                if (($lang === 'skip') || ($lang === 'none') || ($lang !== MarkdownPlus::$lang)) {
                     $tag = 'skip';
-                    $style = $style? " $style display:none;" : 'display:none;';
                 }
-            } elseif (($arg === 'off') || (($arg === 'visible') && ($param !== 'true')))  {
+
+            } elseif (($cmd === 'off') || (($cmd === 'visible') && ($arg !== 'true')))  {
                 $style = $style? " $style display:none;" : 'display:none;';
-            } elseif ($arg === 'showtill') {
-                $t = strtotime($param) - time();
+
+            } elseif ($cmd === 'showtill') {
+                $t = strtotime($arg) - time();
                 if ($t < 0) {
                     $lang = 'none';
                     $tag = 'skip';
                     $style = $style? " $style display:none;" : 'display:none;';
                 }
-            } elseif ($arg === 'showfrom') {
-                $t = strtotime($param) - time();
+
+            } elseif ($cmd === 'showfrom') {
+                $t = strtotime($arg) - time();
                 if ($t > 0) {
                     $lang = 'none';
                     $tag = 'skip';
@@ -395,6 +416,7 @@ class MdPlusHelper
                 }
             }
         }
+        return $str;
     } // _parseMetaCmds
 
 
@@ -423,9 +445,7 @@ class MdPlusHelper
             $htmlAttrArray['style'] = $style;
         }
         if ($attr) {
-            foreach ($attr as $k => $v) {
-                $out .= " $k='$v'";
-            }
+            $out .= ' '.implode(' ', $attr);
             $htmlAttrArray = array_merge($htmlAttrArray, $attr);
         }
         return [$out, $htmlAttrArray];

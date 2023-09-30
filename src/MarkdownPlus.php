@@ -1,5 +1,5 @@
 <?php
-namespace Usility\MarkdownPlus;
+namespace PgFactory\MarkdownPlus;
 
 use cebe\markdown\MarkdownExtra;
 use Exception;
@@ -35,13 +35,13 @@ class MarkdownPlus extends MarkdownExtra
     private bool $isParagraphContext;
     private string $sectionIdentifier;
     private bool $removeComments;
-    private static $lang;
+    public  static $lang;
 
     /**
      */
     public function __construct()
     {
-        $options = kirby()->option('usility.markdownplus.options');
+        $options = kirby()->option('pgfactory.markdownplus.options');
         $this->divblockChars =      $options['divblockChars'] ?? '@%';
         $this->compileCodeBlocks =  $options['compileCodeBlocks'] ?? true;
         $this->enableSmartypants =  $options['enableSmartypants'] ?? true;
@@ -87,7 +87,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     public function compileParagraph(string $str, bool $omitPWrapperTag = false):string
     {
-        if (!$str) {
+        if (trim($str) === '') {
             return '';
         }
         $this->isParagraphContext = true;
@@ -374,7 +374,7 @@ class MarkdownPlus extends MarkdownExtra
 
         // consume all lines until end-tag, e.g. @@@
         $count = count($lines);
-        $content = '';
+        $content = $attrs['text']."\n" ?: '';
         for($i = $current + 1; $i < $count; $i++) {
             $line = $lines[$i];
             if (preg_match("/^($pattern)\s*(.*)/", $line, $m)) { // it's a potential fence line
@@ -471,6 +471,11 @@ class MarkdownPlus extends MarkdownExtra
         $tag = $block['tag'];
         $attrs = $block['attributes'];
 
+        // $tag == 'skip' means omit from output:
+        if ($tag === 'skip') {
+            return '';
+        }
+
         // exclude blocks with lang option set but is not current language:
         if ($block['lang'] && ($block['lang'] !== self::$lang)) {
             return '';
@@ -484,7 +489,7 @@ class MarkdownPlus extends MarkdownExtra
 
 
         if (($tag === '') && !$attrs) {
-            return $out;
+            return "$out\n\n";
         } else {
             $tag = $tag?: 'div';
             $_tag = str_contains(MDPMD_SINGLETON_TAGS, $tag)? '': "</$tag>";
@@ -1033,7 +1038,7 @@ EOT;
         }
 
         $attr = "src:'$src', alt:'$alt', caption:'$caption'";
-        if (function_exists('Usility\\MarkdownPlus\\img')) {
+        if (function_exists('PgFactory\\MarkdownPlus\\img')) {
             $str = $this->processByMacro('img', $attr);
         } elseif ($caption) {
             $str = "<img src='$src' alt='$alt'>";
@@ -1080,7 +1085,7 @@ EOT;
         $linkText = $element[2];
         $title = preg_replace('/^ ([\'"]) (.*) \1 $/x', "$2", $element[3]);
 
-        if (function_exists('Usility\\MarkdownPlus\\link')) {
+        if (function_exists('PgFactory\\MarkdownPlus\\link')) {
             $attr = "url:'$link', ";
             $q = (!str_contains($linkText, "'")) ? "'" : '"';
             $attr .= "text:$q$linkText$q, ";
@@ -1264,7 +1269,10 @@ EOT;
     {
         $p = 0;
         while ($p=strpos($str, '\\', $p)) {
-            $ch = $str[$p+1];
+            $ch = $str[$p+1]??'';
+            if (!$ch) {
+                break;
+            }
             if ($ch === "\n") {
                 $unicode = '<br>';
             } else {
@@ -1417,11 +1425,9 @@ EOT;
         }
         $rest = substr(trim($line), strlen($tag));
 
-        // handle lang:
-        if ($value = $attrs['lang']??false) {
-            if ($value !== self::$lang) {
-                return '';
-            }
+        // handle tag=skip:
+        if ($attrs['tag'] === 'skip') {
+            return '';
         }
 
         // handle id:
@@ -1682,7 +1688,7 @@ EOT;
         if (!str_contains($argStr, ',')) {
             $argStr = preg_replace('/(\s\w+:)/', ",$1", $argStr);
         }
-        $macroName = "Usility\\PageFactory\\$macroName";
+        $macroName = "PgFactory\\PageFactory\\$macroName";
         if (function_exists($macroName)) {
             $str = $macroName($argStr);
         } else {

@@ -7,5 +7,5 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'cebe\\markdown\\' => array($vendorDir . '/cebe/markdown'),
-    'PgFactory\\MarkdownPlus\\' => array($baseDir . '/src'),
+    'Kirby\\' => array($vendorDir . '/getkirby/composer-installer/src'),
 );

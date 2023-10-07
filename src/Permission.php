@@ -23,7 +23,7 @@ const MDP_LOG_PATH = 'site/logs/';
  */
 class Permission
 {
-    private static $accessAlreadyGranted = false;
+    private static bool $anonAccess = false;
 
     /**
      * Evaluates a $permissionQuery against the current visitor's status.
@@ -117,19 +117,30 @@ class Permission
      */
     public static function checkPageAccessCode(): mixed
     {
-        if (self::$accessAlreadyGranted) {
-            return self::$accessAlreadyGranted;
+        // check whether already granted:
+        $session = kirby()->session();
+        if ($user = $session->get('pfy.accessCodeUser')) {
+            return $user;
         }
-        $user = kirby()->user();
+
+        if (self::$anonAccess) {
+            return 'anon';
+        }
+
+        // check whether there is an access code in url-args:
         if (!($_GET['a']??false)) {
-            return $user; // no access request, return login status
+            return kirby()->user(); // no access request, return login status
+
         } else {
+            // get access code:
             $submittedAccessCode = get('a', null);
             unset($_GET['a']);
         }
-        if ($user) {
+
+        // check whether visitor is regularly logged in:
+        if ($user = kirby()->user()) {
             $username = (string)$user->nameOrEmail();
-            return $username; // already logged in
+            return $username; // already logged in, return logged-in user
         }
 
         // get access codes from meta-file "accessCode:" resp. "accessCodes:" field:
@@ -137,46 +148,46 @@ class Permission
         if (!$pageAccessCodes) {
             $pageAccessCodes = page()->accesscode()->value();
             if (!$pageAccessCodes) {
-                return self::$accessAlreadyGranted;
+                return false;
             }
         }
 
-        $pageAccessCodes = $pageAccessCodes0 = Data::decode($pageAccessCodes, 'YAML');
-        if (is_array($pageAccessCodes)) {
-            $a = array_keys($pageAccessCodes);
-            if (!is_int(array_pop($a))) {
-                $pageAccessCodes = array_keys($pageAccessCodes);
-            }
-        } else {
-            $pageAccessCodes = [$pageAccessCodes];
+        // get defined access codes:
+        $pageAccessCodes = Data::decode($pageAccessCodes, 'YAML');
+        if (!is_array($pageAccessCodes)) {
+            return false;
+        }
+
+        // check order, flip array if necessary:
+        $key1 = array_keys($pageAccessCodes)[0];
+        if (!\Kirby\Toolkit\V::email($key1)) {
+            $pageAccessCodes = array_flip($pageAccessCodes);
         }
 
         // check whether given code has been defined:
         $found = array_search($submittedAccessCode, $pageAccessCodes);
         $page = substr(page()->url(), strlen(site()->url()) + 1) ?: 'home';
         if ($found !== false) {
-            $res = 'anon';
-            if (!self::$accessAlreadyGranted) {
-                if ($email = $pageAccessCodes0[$submittedAccessCode] ?? false) {
-                    if (is_string($email) && preg_match('/\S+@\w+\.\w+/', $email)) {
-                        self::impersonateUser($email);
-                        $res = kirby()->user($email);
-                    }
+            if ($email = \Kirby\Toolkit\V::email($found) ? $found : false) {
+                self::impersonateUser($email);
+                $user = kirby()->user($email);
+                if ($user) {
+                    $session->set('pfy.accessCodeUser', $user);
                     self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page/'", 'login-log.txt');
-                } else {
-                    self::mylog("AccessCode '$submittedAccessCode' validated on page '$page/'", 'login-log.txt');
                 }
-                self::$accessAlreadyGranted = $res;
             } else {
-                $res = self::$accessAlreadyGranted;
+                $user = 'anon';
+                self::$anonAccess = true;
+                self::mylog("AccessCode '$submittedAccessCode' validated on page '$page/'", 'login-log.txt');
             }
             // grant access:
-            return $res;
+            return $user;
+
         } else {
             // deny access, log unsucessfull access attempt:
             self::mylog("AccessCode '$submittedAccessCode' rejected on page '$page/'", 'login-log.txt');
         }
-        return false; // no access given
+        return false; // no access granted
     } // checkPageAccessCode
 
 

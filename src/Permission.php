@@ -117,45 +117,45 @@ class Permission
      */
     public static function checkPageAccessCode(): mixed
     {
-        // check whether already granted:
-        $session = kirby()->session();
-        if ($user = $session->get('pfy.accessCodeUser')) {
-            return $user;
-        }
-
-        if (self::$anonAccess) {
-            return 'anon';
-        }
-
         // check whether there is an access code in url-args:
-        if (!($_GET['a']??false)) {
-            return kirby()->user(); // no access request, return login status
+        if ($_GET['a']??false) {
+            $user = self::evaluateAccessCode();
+            unset($_GET['a']); // delete, so accessCode is only evaluated once
 
         } else {
-            // get access code:
-            $submittedAccessCode = get('a', null);
-            unset($_GET['a']);
+            // no accessCode, so check whether it has been evaluated before:
+            $session = kirby()->session();
+            if ($user1 = $session->get('pfy.accessCodeUser')) {
+                $user = $user1;
+            } else {
+                // fall back to logged-in user:
+                $user = kirby()->user();
+            }
         }
+        return $user;
+    } // checkPageAccessCode
 
-        // check whether visitor is regularly logged in:
-        if ($user = kirby()->user()) {
-            $username = (string)$user->nameOrEmail();
-            return $username; // already logged in, return logged-in user
-        }
 
-        // get access codes from meta-file "accessCode:" resp. "accessCodes:" field:
+    /**
+     * @return mixed
+     * @throws \Throwable
+     */
+    private static function evaluateAccessCode(): mixed
+    {
+        $loggedInUser = kirby()->user();
+        $session = kirby()->session();
+
+        // get defined access codes:
         $pageAccessCodes = page()->accesscodes()->value();
         if (!$pageAccessCodes) {
             $pageAccessCodes = page()->accesscode()->value();
             if (!$pageAccessCodes) {
-                return false;
+                return $loggedInUser; // no accessCodes defined, fall back to possibly logged-in user
             }
         }
-
-        // get defined access codes:
         $pageAccessCodes = Data::decode($pageAccessCodes, 'YAML');
         if (!is_array($pageAccessCodes)) {
-            return false;
+            return $loggedInUser; // no valid accessCodes defined, fall back to possibly logged-in user
         }
 
         // check order, flip array if necessary:
@@ -164,9 +164,12 @@ class Permission
             $pageAccessCodes = array_flip($pageAccessCodes);
         }
 
-        // check whether given code has been defined:
-        $found = array_search($submittedAccessCode, $pageAccessCodes);
+        // get page name for logging:
         $page = substr(page()->url(), strlen(site()->url()) + 1) ?: 'home';
+
+        // check whether submitted code has been defined:
+        $submittedAccessCode = get('a', null); // get accessCode
+        $found = array_search($submittedAccessCode, $pageAccessCodes);
         if ($found !== false) {
             if ($email = \Kirby\Toolkit\V::email($found) ? $found : false) {
                 self::impersonateUser($email);
@@ -174,21 +177,25 @@ class Permission
                 if ($user) {
                     $session->set('pfy.accessCodeUser', $user);
                     self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page/'", 'login-log.txt');
+                } else {
+                    $user = 'anon'; // actually, this case should not be possible
                 }
             } else {
+                // case accessCode without email -> grant as 'anon', but don't remember:
                 $user = 'anon';
                 self::$anonAccess = true;
+                $session->remove('pfy.accessCodeUser');
                 self::mylog("AccessCode '$submittedAccessCode' validated on page '$page/'", 'login-log.txt');
             }
             // grant access:
             return $user;
 
         } else {
-            // deny access, log unsucessfull access attempt:
+            // no matching accessCode found, fall back to possibly logged-in user:
             self::mylog("AccessCode '$submittedAccessCode' rejected on page '$page/'", 'login-log.txt');
+            return $loggedInUser;
         }
-        return false; // no access granted
-    } // checkPageAccessCode
+    } // evaluateAccessCode
 
 
     /**

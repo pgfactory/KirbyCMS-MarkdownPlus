@@ -23,7 +23,7 @@ const MDP_LOG_PATH = 'site/logs/';
  */
 class Permission
 {
-    private static bool $anonAccess = false;
+    private static string|bool $anonAccess = false;
 
     /**
      * Evaluates a $permissionQuery against the current visitor's status.
@@ -60,18 +60,19 @@ class Permission
             }
         }
 
-        $res = self::checkPageAccessCode();
+        $user = self::checkPageAccessCode();
 
-        $name = $role = $email = false;
-        $user = kirby()->user();
-        if ($user) {
+        $role = $email = false;
+        if (is_object($user)) {
             $credentials = $user->credentials();
             $name = strtolower($credentials['name']??'');
             $email = strtolower($credentials['email']??'');
             $role = strtolower($user->role()->name());
+        } else {
+            $name = $user;
         }
-        $loggedIn = ($user??false) || $res;
-        if (str_contains('notloggedin,anon,', $permissionQuery)) {
+        $loggedIn = (bool)$user;
+        if ($permissionQuery === 'notloggedin' || $permissionQuery === 'anon') {
             $admission = !$loggedIn;
 
         } elseif (str_contains($permissionQuery, 'loggedin')) {
@@ -128,8 +129,7 @@ class Permission
             if ($user1 = $session->get('pfy.accessCodeUser')) {
                 $user = $user1;
             } else {
-                // fall back to logged-in user:
-                $user = kirby()->user();
+                $user = self::$anonAccess;
             }
         }
         return $user;
@@ -182,8 +182,7 @@ class Permission
                 }
             } else {
                 // case accessCode without email -> grant as 'anon', but don't remember:
-                $user = 'anon';
-                self::$anonAccess = true;
+                $user = self::$anonAccess = 'anon';
                 $session->remove('pfy.accessCodeUser');
                 self::mylog("AccessCode '$submittedAccessCode' validated on page '$page/'", 'login-log.txt');
             }

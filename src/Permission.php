@@ -61,18 +61,16 @@ class Permission
             }
         }
 
-        $res = self::checkPageAccessCode();
+        $user = self::checkPageAccessCode();
 
         $name = $role = $email = false;
-        $user = kirby()->user();
-        if ($user) {
-            $credentials = $user->credentials();
+        if (is_object($user)) {
             $name = strtolower($credentials['name']??'');
             $email = strtolower($credentials['email']??'');
             $role = strtolower($user->role()->name());
         }
-        $loggedIn = ($user??false) || $res;
-        if (str_contains('notloggedin,anon,', $permissionQuery)) {
+        $loggedIn = (bool)$user;
+        if ($permissionQuery === 'notloggedin' || $permissionQuery === 'anon,') {
             $admission = !$loggedIn;
 
         } elseif (str_contains($permissionQuery, 'loggedin')) {

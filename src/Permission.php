@@ -123,7 +123,7 @@ class Permission
         $page = page()->id();
 
         // check whether there is an access code in url-args:
-        if (!($_GET['a']??false)) {
+        if (!isset($_GET['a'])) {
             // check whether already granted:
             if ($user = $session->get('pfy.accessCodeUser')) {
                 return $user;
@@ -198,9 +198,10 @@ class Permission
 
         } else {
             // deny access, log unsucessfull access attempt:
+            $session->remove('pfy.accessCodeUser');
             self::mylog("AccessCode '$submittedAccessCode' rejected on page '$page'", 'login-log.txt');
         }
-        return false; // no access granted
+        return kirby()->user(); // no access granted, resp. fall back to originally logged in user
     } // checkPageAccessCode
 
 

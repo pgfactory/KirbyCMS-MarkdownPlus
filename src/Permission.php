@@ -53,10 +53,12 @@ class Permission
 
         // handle special option 'localhost' -> take session var into account:
         session_start();
-        $debugOverride = ($_SESSION['pfy.debug']??null) === false;
+        if (($_SESSION['pfy.debug']??null) === false) { // debug explicitly false
+            $allowOnLocalhost = false;
+        }
         session_abort();
         if (str_contains($permissionQuery, 'localhost')) {
-            if (self::isLocalhost() && !$debugOverride && $allowOnLocalhost) {
+            if (self::isLocalhost() && $allowOnLocalhost) {
                 return true;
             }
         }

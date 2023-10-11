@@ -1,6 +1,14 @@
 # OS files
 .DS_Store
 
+# intellij
+.idea
+*.iml
+
+# composer
+composer.lock
+vendor/
+
 
 # ignore everything that starts with '#' (or '.#', the hidden variant):
 /**/[#]*

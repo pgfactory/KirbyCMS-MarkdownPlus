@@ -2,7 +2,6 @@
 
 namespace PgFactory\MarkdownPlus;
 
-//use function PgFactory\PageFactory\isLocalhost;
 use Kirby\Data\Data;
 use PgFactory\PageFactory\PageFactory;
 
@@ -162,7 +161,7 @@ class Permission
         if (!is_array($pageAccessCodes)) {
             // no valid code definitions found:
             $pageAccessCodes = json_encode($pageAccessCodes);
-            if (PageFactory::$debug) {
+            if (PageFactory::$debug??false) {
                 throw new \Exception("Invalid AccessCode found for page '$page': '$pageAccessCodes'");
             } else {
                 self::mylog("Invalid AccessCode found for page '$page': '$pageAccessCodes'", 'login-log.txt');
@@ -185,6 +184,7 @@ class Permission
                 self::impersonateUser($email);
                 $user = kirby()->user($email);
                 if ($user) {
+                    $session->set('pfy.message', 'You are logged in now');
                     $session->set('pfy.accessCodeUser', $user);
                     self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page'", 'login-log.txt');
                 }

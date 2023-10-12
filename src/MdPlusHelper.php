@@ -989,7 +989,7 @@ class MdPlusHelper
                 }
             }
         }
-        $key = preg_replace('/(?<!\\\)"/', '\\"', $key);
+        $key = str_replace(['\\', '"', "\t", "\n", "\r", "\f"], ['\\\\', '\\"', '\\t', '\\n', '\\r', '\\f'], $key);
         return "\"$key\"";
     } // parseArgKey
 
@@ -1032,6 +1032,7 @@ class MdPlusHelper
         }
         $value = self::fixDataType($value);
         if (is_string($value)) {
+            $value = str_replace(['\\', '"', "\t", "\n", "\r", "\f"], ['\\\\', '\\"', '\\t', '\\n', '\\r', '\\f'], $value);
             $value = '"' . trim($value) . '"';
         } elseif (is_bool($value)) {
             $value = $value? 'true': 'false';

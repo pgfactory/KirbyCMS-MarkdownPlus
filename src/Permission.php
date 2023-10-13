@@ -97,20 +97,6 @@ class Permission
 
 
     /**
-     * @return bool
-     */
-    private static function isLocalhost(): bool
-    {
-        // url-arg ?localhost=false let's you mimick a remote host:
-        if (($_GET['localhost']??'') === 'false') {
-            return false;
-        }
-        $ip = kirby()->visitor()->ip();
-        return ((str_starts_with($ip, '192.')) || ($ip === '::1'));
-    } // isLocalhost
-
-
-    /**
      * AccessCodes are submitted as ?a=ABCDEFGH.
      * Valid AccessCodes are defined in either config.php or page's meta-files.
      * @return bool
@@ -249,6 +235,20 @@ class Permission
         }
         return false;
     } // renderUserList
+
+
+    /**
+     * @return bool
+     */
+    private static function isLocalhost(): bool
+    {
+        // url-arg ?localhost=false let's you mimick a remote host:
+        if (($_GET['localhost']??'') === 'false') {
+            return false;
+        }
+        $ip = kirby()->visitor()->ip();
+        return ((str_starts_with($ip, '192.')) || ($ip === '::1'));
+    } // isLocalhost
 
 
     /**

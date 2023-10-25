@@ -4,6 +4,7 @@ namespace PgFactory\MarkdownPlus;
 
 use Kirby\Data\Data;
 use PgFactory\PageFactory\PageFactory;
+use function PgFactory\PageFactory\explodeTrim;
 
 const MDP_LOG_PATH = 'site/logs/';
 
@@ -36,19 +37,7 @@ class Permission
             return false;
         }
 
-        $admission = false;
-        $permissionQuery = strtolower($permissionQuery);
-
-        // special case 'nobody' or 'noone' -> deny in any case:
-        if ($permissionQuery === 'nobody' || $permissionQuery === 'noone') {
-            return false;
-
-        // special case 'anybody' or 'anyone' -> always grant access:
-        } elseif ($permissionQuery === 'anybody' || $permissionQuery === 'anyone') {
-            return true;
-        }
-
-
+        $permissionQueryStr = strtolower($permissionQuery);
 
         // handle special option 'localhost' -> take session var into account:
         session_start();
@@ -71,28 +60,42 @@ class Permission
             $role = strtolower($user->role()->name());
         }
         $loggedIn = (bool)$user;
-        if ($permissionQuery === 'notloggedin' || $permissionQuery === 'anon,') {
-            $admission = !$loggedIn;
+        $admission = false;
 
-        } elseif (str_contains($permissionQuery, 'loggedin')) {
-            $admission = $loggedIn;
+        $queries = explodeTrim('|', $permissionQueryStr);
+        foreach ($queries as $permissionQuery) {
+            // special case 'nobody' or 'noone' -> deny in any case:
+            if ($permissionQuery === 'nobody' || $permissionQuery === 'noone') {
+                return false;
 
-        } elseif (preg_match('/^user=(\w+)/', $permissionQuery, $m)) {
-            if (($name === $m[1]) || ($m[1] === 'loggedin')) { // explicit user
-                $admission = $loggedIn;
-            } elseif ($m[1] === 'anon') { // special case: user 'anon'
-                $admission = !$loggedIn;
+                // special case 'anybody' or 'anyone' -> always grant access:
+            } elseif ($permissionQuery === 'anybody' || $permissionQuery === 'anyone') {
+                return true;
             }
 
-        } elseif (preg_match('/^role=(\w+)/', $permissionQuery, $m)) {
-            if ($role === $m[1]) { // explicit role
-                $admission = $loggedIn;
-            }
+            if ($permissionQuery === 'notloggedin' || $permissionQuery === 'anon,') {
+                $admission |= !$loggedIn;
 
-        } elseif (($name === $permissionQuery) || ($email === $permissionQuery) || ($role === $permissionQuery)) { // implicit
-                $admission = $loggedIn;
+            } elseif ($permissionQuery === 'loggedin') {
+                $admission |= $loggedIn;
+
+            } elseif (preg_match('/^user=(\w+)/', $permissionQuery, $m)) {
+                if (($name === $m[1]) || ($m[1] === 'loggedin')) { // explicit user
+                    $admission |= $loggedIn;
+                } elseif ($m[1] === 'anon') { // special case: user 'anon'
+                    $admission |= !$loggedIn;
+                }
+
+            } elseif (preg_match('/^role=(\w+)/', $permissionQuery, $m)) {
+                if ($role === $m[1]) { // explicit role
+                    $admission |= $loggedIn;
+                }
+
+            } elseif (($name === $permissionQuery) || ($email === $permissionQuery) || ($role === $permissionQuery)) { // implicit
+                $admission |= $loggedIn;
+            }
         }
-        return $admission;
+        return (bool)$admission;
     } // evaluate
 
 

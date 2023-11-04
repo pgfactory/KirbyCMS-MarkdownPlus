@@ -1346,7 +1346,7 @@ EOT;
 
 
         // special case: string starts with attrib-def, i.e. no surrounding tags:
-        if (preg_match('|^\s*{:(.*?)}\s*(.*)|', $str, $m)) {
+        if (preg_match('|^\s*(?<!\\\){:(.*?)}\s*(.*)|', $str, $m)) {
             $attrs = MdPlusHelper::parseInlineBlockArguments($m[1]);
             $attrsStr = $attrs['htmlAttrs'];
             if ($this->isParagraphContext) {

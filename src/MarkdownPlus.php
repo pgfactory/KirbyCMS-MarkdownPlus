@@ -408,12 +408,8 @@ class MarkdownPlus extends MarkdownExtra
                 $content = self::compileParagraph($content, true);
                 $block['content'][0] = MdPlusHelper::shieldStr($content, 'inline');
 
-            } elseif (preg_match('/[^a-zA-Z0-9\s.,]/', $content)) {
-                // shield and md-compile after unshielding:
-                $block['content'][0] = MdPlusHelper::shieldStr($content, 'md');
-
             } else {
-                $block['content'][0] = $content;
+                $block['content'][0] = MdPlusHelper::shieldStr($content, 'md');
             }
         } else {
             $block['content'][0] = '';

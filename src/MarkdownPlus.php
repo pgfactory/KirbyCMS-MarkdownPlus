@@ -508,7 +508,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     protected function identifyTabulator(string $line): bool
     {
-        if (preg_match('/(\s\s|\t) ([.\d]{1,3}\w{1,2})? >> [\s\t]/x', $line)) { // identify patterns like '{{ tab( 7em ) }}'
+        if (preg_match('/(\s\s|\t) ([.\d]{1,6}\w{1,2})? >> [\s\t]/x', $line)) { // identify patterns like '{{ tab( 7em ) }}'
             return true;
         }
         return false;
@@ -539,7 +539,7 @@ class MarkdownPlus extends MarkdownExtra
                 $nEmptyLines = 0;
             }
             $line = $lines[$i];
-            if (preg_match_all('/([.\d]{1,3}\w{1,2})? >> [\s\t]/x', $line, $m)) {
+            if (preg_match_all('/([.\d]{1,6}\w{1,2})? >> [\s\t]/x', $line, $m)) {
                 $block['content'][] = $line;
                 foreach ($m[1] as $j => $width) {
                     if ($width) {
@@ -568,7 +568,7 @@ class MarkdownPlus extends MarkdownExtra
         $inx = self::$tabulatorInx++;
         $out = '';
         foreach ($block['content'] as $l) {
-            $parts = preg_split('/[\s\t]* ([.\d]{1,3}\w{1,2})? >> [\s\t]/x', $l);
+            $parts = preg_split('/[\s\t]* ([.\d]{1,6}\w{1,2})? >> [\s\t]/x', $l);
             $line = '';
             $addedWidths = 0; // px
             $addedEmsWidths = 0; // em

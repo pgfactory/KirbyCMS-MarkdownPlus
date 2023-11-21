@@ -569,15 +569,16 @@ class MarkdownPlus extends MarkdownExtra
         $out = '';
         foreach ($block['content'] as $l) {
             $parts = preg_split('/[\s\t]* ([.\d]{1,6}\w{1,2})? >> [\s\t]/x', $l);
-            $line = '';
+            $line = $style = '';
             $addedWidths = 0; // px
             $addedEmsWidths = 0; // em
             foreach ($parts as $n => $elem) {
                 if ($w = ($block['widths'][$n])??false) {
-                    $style = " style='width:$w;'";
-                    $addedWidths += MdPlusHelper::convertToPx($w);
-                    $addedWidths += MdPlusHelper::convertToPx('1.2em');
-                    if (preg_match('/^([\d.]+)em$/', $w, $m)) {
+                    if (($wPx = MdPlusHelper::convertToPx($w)) != 0) {
+                        $style = " style='width:$w;'";
+                        $addedWidths += $wPx;
+                        $addedWidths += MdPlusHelper::convertToPx('1.2em');
+                    } elseif (preg_match('/^([\d.]+)em$/', $w, $m)) {
                         $addedEmsWidths += intval($m[1]);
                     } else {
                         // non-'em'-width detected -> can't use em-based width:
@@ -593,7 +594,7 @@ class MarkdownPlus extends MarkdownExtra
                     if ($addedEmsWidths > 0) {
                         // all widths defined as 'em', so we can use that value:
                         $style = " style='max-width:calc(100% - {$addedEmsWidths}em);'";
-                    } else {
+                    } elseif ($addedWidths) {
                         // some widths defined as non-'em' -> use px-based estimate:
                         $style = " style='max-width:calc(100% - {$addedWidths}px);'";
                     }

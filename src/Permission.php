@@ -37,7 +37,7 @@ class Permission
             return false;
         }
 
-        $permissionQueryStr = strtolower($permissionQuery);
+        $permissionQueryStr = str_replace(' ', '', strtolower($permissionQuery));
 
         // handle special option 'localhost' -> take session var into account:
         session_start();
@@ -62,7 +62,7 @@ class Permission
         $loggedIn = (bool)$user;
         $admission = false;
 
-        $queries = explodeTrim('|', $permissionQueryStr);
+        $queries = explodeTrim('|,', $permissionQueryStr);
         foreach ($queries as $permissionQuery) {
             // special case 'nobody' or 'noone' -> deny in any case:
             if ($permissionQuery === 'nobody' || $permissionQuery === 'noone') {

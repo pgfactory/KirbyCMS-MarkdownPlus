@@ -113,7 +113,8 @@ class Permission
         // check whether there is an access code in url-args:
         if (!isset($_GET['a'])) {
             // check whether already granted:
-            if ($user = $session->get('pfy.accessCodeUser')) {
+            if ($email = $session->get('pfy.accessCodeUser')) {
+                $user = kirby()->user($email);
                 return $user;
             }
 
@@ -174,7 +175,7 @@ class Permission
                 $user = kirby()->user($email);
                 if ($user) {
                     $session->set('pfy.message', 'You are logged in now');
-                    $session->set('pfy.accessCodeUser', $user);
+                    $session->set('pfy.accessCodeUser', $email);
                     self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page'", 'login-log.txt');
                 }
             } else {

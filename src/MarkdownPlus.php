@@ -4,6 +4,7 @@ namespace PgFactory\MarkdownPlus;
 use cebe\markdown\MarkdownExtra;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
+use function PgFactory\PageFactory\shieldStr;
 
 include_once __DIR__ . '/MdPlusHelper.php';
 
@@ -508,7 +509,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     protected function identifyTabulator(string $line): bool
     {
-        if (preg_match('/(\s\s|\t) ([.\d]{1,6}\w{1,2})? >> [\s\t]/x', $line)) { // identify patterns like '{{ tab( 7em ) }}'
+        if (preg_match('/(\s\s|\t) ([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line)) { // identify patterns like '{{ tab( 7em ) }}'
             return true;
         }
         return false;
@@ -523,40 +524,31 @@ class MarkdownPlus extends MarkdownExtra
     {
         $block = [
             'tabulator',
-            'content' => [],
+            'content' => [[]],
             'widths' => [],
         ];
 
-        $last = $current;
-        $nEmptyLines = 0;
         // consume following lines containing >>
+        $p = 0;
         for($i = $current, $count = count($lines); $i <= $count-1; $i++) {
-            if (!preg_match('/\S/', $lines[$i])) {  // empty line
-                if ($nEmptyLines++ > 0) {
+            $line = $lines[$i];
+            if (preg_match_all('/([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line, $m)) {
+                $parts = preg_split('/[\s\t]* ([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line);
+                foreach ($parts as $n => $elem) {
+                    $block['content'][$p][$n] = $elem;
+                    $block['widths'][$p][$n] = $m[1][$n]??false;
+                }
+                $p++;
+            } else {
+                if (!$line) {
                     break;
                 }
-            } else {
-                $nEmptyLines = 0;
-            }
-            $line = $lines[$i];
-            if (preg_match_all('/([.\d]{1,6}\w{1,2})? >> [\s\t]/x', $line, $m)) {
-                $block['content'][] = $line;
-                foreach ($m[1] as $j => $width) {
-                    if ($width) {
-                        $block['widths'][$j] = $width;
-                    } elseif (!isset($block['widths'][$j])) {
-                        $block['widths'][$j] = DEFAULT_TABULATOR_WIDTH;
-                    }
-                }
-                $last = $i;
-            } elseif (empty($line)) {
-                continue;
-            } else {
-                break;
+                $block['content'][$p-1][$n] .= "\n".$line;
             }
         }
-        return [$block, $last];
+        return [$block, $i];
     } // consumeTabulator
+
 
     /**
      * @param array $block
@@ -567,44 +559,27 @@ class MarkdownPlus extends MarkdownExtra
     {
         $inx = self::$tabulatorInx++;
         $out = '';
-        foreach ($block['content'] as $l) {
-            $parts = preg_split('/[\s\t]* ([.\d]{1,6}\w{1,2})? >> [\s\t]/x', $l);
-            $line = $style = '';
-            $addedWidths = 0; // px
-            $addedEmsWidths = 0; // em
-            foreach ($parts as $n => $elem) {
-                if ($w = ($block['widths'][$n])??false) {
-                    if (($wPx = MdPlusHelper::convertToPx($w)) != 0) {
-                        $style = " style='width:$w;'";
-                        $addedWidths += $wPx;
-                        $addedWidths += MdPlusHelper::convertToPx('1.2em');
-                    } elseif (preg_match('/^([\d.]+)em$/', $w, $m)) {
-                        $addedEmsWidths += intval($m[1]);
-                    } else {
-                        // non-'em'-width detected -> can't use em-based width:
-                        $addedEmsWidths = -999999;
-                    }
-
-                } elseif ($n === 0) {
-                    $style = " style='width:6em;'";
-                    $addedWidths += 16;
-                    $addedEmsWidths += 1;
-
-                } else {
-                    if ($addedEmsWidths > 0) {
-                        // all widths defined as 'em', so we can use that value:
-                        $style = " style='max-width:calc(100% - {$addedEmsWidths}em);'";
-                    } elseif ($addedWidths) {
-                        // some widths defined as non-'em' -> use px-based estimate:
-                        $style = " style='max-width:calc(100% - {$addedWidths}px);'";
-                    }
-                }
+        $style = '';
+        $widths = $block['widths']??[];
+        foreach ($block['content'] as $n => $parts) {
+            $n++;
+            $last = sizeof($parts) - 1;
+            $line = '';
+            foreach ($parts as $p => $elem) {
+                $i = $p + 1;
+                $lastClass = ($p === $last) ? ' tt-last' : '';
                 $elem = self::compileParagraph($elem);
-                $line .= "<span class='c".($n+1)."'$style>$elem</span>";
+                $line .= "<div class='tt$i$lastClass'>$elem</div>";
+                if ($w = ($widths[$n-1][$p]??false)) {
+                    $style .= "--tt$i-width: $w;";
+                }
             }
-            $out .= "<div class='mdp-tabulator-wrapper mdp-tabulator-wrapper-$inx'>$line</div>\n";
+            $out .= "<div class='mdp-tabulator-wrapper mdp-tabulator-wrapper-$n'>\n$line\n</div>\n";
         }
-        return $out;
+        if ($style) {
+            $style = shieldStr(" style='$style'");
+        }
+        return "<div class='mdp-tabulator-outer-wrapper mdp-tabulator-outer-wrapper-$inx'$style>\n$out\n</div><!-- /mdp-tabulator-outer-wrapper-$inx -->\n";
     } // renderTabulator
 
 

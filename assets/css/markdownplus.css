@@ -41,8 +41,20 @@
   &.tt4 {
     width: var(--tt4-width, 0px);
   }
+  &.tt5 {
+    width: var(--tt5-width, 0px);
+  }
+  &.tt6 {
+    width: var(--tt6-width, 0px);
+  }
   &.tt-last {
-    width: calc(100% - var(--tt1-width, 6em) - var(--tt2-width, 0px) - var(--tt3-width, 0px) - var(--tt4-width, 0px));
+    width: calc(100% - var(--tt1-width, 6em)
+          - var(--tt2-width, 0px)
+          - var(--tt3-width, 0px)
+          - var(--tt4-width, 0px)
+          - var(--tt5-width, 0px)
+          - var(--tt6-width, 0px)
+    );
   }
 }
 

@@ -216,7 +216,7 @@ class Permission
      *  (so, this could be a security risk if local subnet is not considered secure)
      * @return bool
      */
-    private static function isLocalhost(): bool
+    public static function isLocalhost(): bool
     {
         // url-arg ?localhost=false let's you mimick a remote host:
         if (($_GET['localhost']??'') === 'false') {

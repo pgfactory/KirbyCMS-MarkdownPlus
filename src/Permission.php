@@ -101,7 +101,9 @@ class Permission
 
     /**
      * AccessCodes are submitted as ?a=ABCDEFGH.
-     * Valid AccessCodes are defined in either config.php or page's meta-files.
+     * Valid AccessCodes are defined:
+     *    - in user's profile as field 'AccessCode'
+     *    - page's meta-files (aka .txt) as field 'AccessCode' -> anonymous access(!)
      * @return bool
      * @throws \Exception
      */
@@ -129,88 +131,46 @@ class Permission
             unset($_GET['a']);
         }
 
-        // try to get access codes from meta-file "accessCode:" resp. "accessCodes:" field:
-        $pageAccessCodes = page()->accesscodes()->value();
-        if (!$pageAccessCodes) {
-            $pageAccessCodes = page()->accesscode()->value();
-            if (!$pageAccessCodes) {
-                // if nothing found, try to get from $config file:
-                $options = kirby()->option('pgfactory.markdownplus.options');
-                if (!($pageAccessCodes = ($options['accessCodes']??false))) {
-                    if (!($pageAccessCodes = ($options['accessCode']??false))) {
-                        return false;
-                    }
-                }
+        // first check against AccessCode of users:
+        foreach (kirby()->users() as $user) {
+            $name = $user->nameOrEmail()->value();
+            $accessCode = $user->accesscode()->value();
+            if ($submittedAccessCode === $accessCode) {
+                // match found -> log in
+                $email = $user->email();
+                self::impersonateUser($email);
+                $session->set('pfy.message', 'You are logged in now as '.$name);
+                $session->set('pfy.accessCodeUser', $email);
+                self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page'", 'login-log.txt');
+                return $user;
             }
         }
 
-        // convert if necessary:
-        if (is_string($pageAccessCodes)) {
-            $pageAccessCodes = Data::decode($pageAccessCodes, 'YAML');
-        }
-        if (!is_array($pageAccessCodes)) {
-            // no valid code definitions found:
-            $pageAccessCodes = json_encode($pageAccessCodes);
-            if (PageFactory::$debug??false) {
-                throw new \Exception("Invalid AccessCode found for page '$page': '$pageAccessCodes'");
-            } else {
-                self::mylog("Invalid AccessCode found for page '$page': '$pageAccessCodes'", 'login-log.txt');
-                return false;
-            }
-        }
-
-        // check order, flip array if necessary:
-        //   -> case of reversed AccessCodes:
-        //           ABCDEFGH: a_member@domain.net
-        $val1 = array_values($pageAccessCodes)[0];
-        if (\Kirby\Toolkit\V::email($val1)) {
-            $pageAccessCodes = array_flip($pageAccessCodes);
-        }
+        // try to get "accessCode:" resp. "accessCodes:" from page (i.e. meta-file):
+        $pageAccessCodes = page()->accesscodes()->value() ?: page()->accesscode()->value();
+        $pageAccessCodes = Data::decode($pageAccessCodes, 'YAML');
 
         // check whether given code has been defined:
-        $found = array_search($submittedAccessCode, $pageAccessCodes);
-        if ($found !== false) {
-            if ($email = \Kirby\Toolkit\V::email($found) ? $found : false) {
-                self::impersonateUser($email);
-                $user = kirby()->user($email);
-                if ($user) {
-                    $session->set('pfy.message', 'You are logged in now');
-                    $session->set('pfy.accessCodeUser', $email);
-                    self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page'", 'login-log.txt');
-                }
-            } else {
-                $user = 'anon';
-                self::$anonAccess[$page] = true;
-                self::mylog("AccessCode '$submittedAccessCode' validated on page '$page'", 'login-log.txt');
-            }
-            // grant access:
-            return $user;
-
-        } else {
-            // deny access, log unsucessfull access attempt:
-            $session->remove('pfy.accessCodeUser');
-            self::mylog("AccessCode '$submittedAccessCode' rejected on page '$page'", 'login-log.txt');
+        if (is_array($pageAccessCodes) && in_array($submittedAccessCode, $pageAccessCodes)) {
+            self::$anonAccess[$page] = true;
+            self::mylog("AccessCode '$submittedAccessCode' validated on page '$page'", 'login-log.txt');
+            return 'anon';
+        } elseif (PageFactory::$debug??false) {
+                self::mylog("Invalid AccessCode '$submittedAccessCode' received for page '$page'", 'login-log.txt');
         }
-        return kirby()->user(); // no access granted, resp. fall back to originally logged in user
+        return false;
     } // checkPageAccessCode
 
 
     /**
+     * Given an email address of a registered user, that user is logged in by kirby()->impersonate($email)
      * @param string $userQuery
      * @return string|bool
      * @throws \Throwable
      */
     private static function impersonateUser(string $userQuery): string|bool
     {
-        if (str_contains($userQuery, '@')) {
-            $email = $userQuery;
-        } else {
-            $email = false;
-            $user = self::findUser($userQuery);
-            if (is_object($user)) {
-                $email = strtolower($user->credentials()['email'] ?? '');
-            }
-        }
+        $email = Permission::findUsersEmail(strtolower($userQuery));
         if ($email) {
             if ($user = kirby()->impersonate($email)) {
                 $email = strtolower($user->credentials()['email'] ?? '');
@@ -225,23 +185,35 @@ class Permission
 
 
     /**
-     * @param string $value
-     * @return object|bool
+     * Given an email or username, checks existence resp. finds user's email address
+     * @param string $searchKey
+     * @return string|bool      fals or email address
      */
-    private static function findUser(string $value): object|bool
+    public static function findUsersEmail(string $searchKey): string|bool
     {
-        $users = kirby()->users();
-        if ($user = $users->findBy('name', $value)) {
-            return $user;
-        }
-        if ($user = $users->findBy('email', $value)) {
-            return $user;
+        $searchKey = strtolower($searchKey);
+        if (str_contains($searchKey, '@')) {
+            foreach (kirby()->users() as $user) {
+                if ($user->email() === $searchKey) {
+                    return $searchKey;
+                }
+            }
+
+        } else {
+            foreach (kirby()->users() as $user) {
+                $email = $user->email();
+                if (($email === $searchKey) || (strtolower($user->name()->value()) === $searchKey)) {
+                    return $email;
+                }
+            }
         }
         return false;
-    } // renderUserList
+    } // findUsersEmail
 
 
     /**
+     * Returns true if running inside the same subnet (using netmask 255.255.255.0).
+     *  (so, this could be a security risk if local subnet is not considered secure)
      * @return bool
      */
     private static function isLocalhost(): bool
@@ -250,9 +222,23 @@ class Permission
         if (($_GET['localhost']??'') === 'false') {
             return false;
         }
-        $ip = kirby()->visitor()->ip();
-        return ((str_starts_with($ip, '192.')) || ($ip === '::1'));
+        return self::ipInRange(kirby()->visitor()->ip(), $_SERVER['SERVER_ADDR']);
     } // isLocalhost
+
+
+    /**
+     * Check if a given ip is in a network
+     * @param  string $ip    IP to check in IPV4 format eg. 127.0.0.1
+     * @param  string $range IP/CIDR netmask eg. 127.0.0.0/24, also 127.0.0.1 is accepted and /32 assumed
+     * @return boolean true if the ip is in this range / false if not.
+     */
+    private static function ipInRange($ip, $range, $netmask = 24) {
+        $range_decimal = ip2long( $range );
+        $ip_decimal = ip2long( $ip );
+        $wildcard_decimal = pow( 2, ( 32 - $netmask ) ) - 1;
+        $netmask_decimal = ~ $wildcard_decimal;
+        return ( ( $ip_decimal & $netmask_decimal ) == ( $range_decimal & $netmask_decimal ) );
+    } // ipInRange
 
 
     /**

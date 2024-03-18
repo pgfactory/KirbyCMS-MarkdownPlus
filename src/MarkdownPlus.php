@@ -4,6 +4,8 @@ namespace PgFactory\MarkdownPlus;
 use cebe\markdown\MarkdownExtra;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
+use function PgFactory\PageFactory\explodeTrim;
+use function PgFactory\PageFactory\getFile;
 use function PgFactory\PageFactory\shieldStr;
 
 include_once __DIR__ . '/MdPlusHelper.php';
@@ -21,7 +23,7 @@ const DEFAULT_TABULATOR_WIDTH = '6em';
 const INLINE_ELEMENTS = "a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,map,object,'.
 'output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,";
   // 'skip' is a pseudo tag used by MarkdownPlus.
-
+const ABBREVIATIONS_FILE    = 'site/custom/variables/abbreviations.txt';
 
 class MarkdownPlus extends MarkdownExtra
 {
@@ -37,6 +39,7 @@ class MarkdownPlus extends MarkdownExtra
     private string $sectionIdentifier;
     private bool $removeComments;
     public  static $lang;
+    private static array $abbr = [];
 
     /**
      */
@@ -54,7 +57,9 @@ class MarkdownPlus extends MarkdownExtra
 
         $lang = kirby()->language();
         self::$lang = $lang ? $lang->code() : '';
-    }
+
+        $this->loadAbbreviations();
+    } // __construct
 
 
     /**
@@ -1121,6 +1126,8 @@ EOT;
 
         $str = $this->handleFrontmatter($str);
 
+        $str = $this->handleAbbreviations($str);
+
         $str = $this->handleShieldedCharacters($str);
 
         $str = $this->handleIncludes($str);
@@ -1688,6 +1695,54 @@ EOT;
         }
         return $str;
     } // handleFrontmatter
+
+
+    /**
+     * Tries to import abbreviation definitions from file 'site/custom/variables/abbreviations.txt'
+     * @return void
+     */
+    private function loadAbbreviations()
+    {
+        if (file_exists(ABBREVIATIONS_FILE)) {
+            $lines = explode("\n", getFile(ABBREVIATIONS_FILE));
+            foreach ($lines as $line) {
+                if (!$line) {
+                    continue;
+                }
+                list($key, $value) = explodeTrim(':', $line);
+                self::$abbr[$key] = $value;
+            }
+        }
+    } // loadAbbreviations
+
+
+    /**
+     * First, looks for abbreviation definitions in markdown.
+     * Second, replaces all instances where content matches one the abbreviations.
+     * @param string $str
+     * @return string
+     */
+    private function handleAbbreviations(string $str): string
+    {
+        while (preg_match('/\*\[(.+?)]:\s*(.*?)\n/xms', $str, $m)) {
+            $key = $m[1];
+            $value = $m[2];
+            self::$abbr[$key] = $value;
+
+            $str = str_replace($m[0], '', $str);
+        }
+
+        // check whether abbreviations are available:
+        if (self::$abbr) {
+            // for all instances, inject HTML <abbr>:
+            foreach (self::$abbr as $key => $value) {
+                $value = "<abbr title='$value'>$key</abbr>";
+                $str = preg_replace("/\b$key\b/m", $value, $str);
+            }
+        }
+
+        return $str;
+    } // handleAbbreviations
 
 
     /**

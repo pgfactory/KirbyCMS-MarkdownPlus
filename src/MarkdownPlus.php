@@ -760,7 +760,7 @@ EOT;
                 $elemInx++;
                 $block['content'][$elemInx]['dt'] = $lines[$i++];
                 $block['content'][$elemInx]['dd'] = substr($lines[$i],1);
-                while (str_starts_with($lines[$i+1], ':')) {
+                while (str_starts_with($lines[$i+1]??'', ':')) {
                     $i++;
                     $block['content'][$elemInx]['dd'] .= "\n".substr($lines[$i],1);
                 }

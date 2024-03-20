@@ -589,19 +589,139 @@ class MarkdownPlus extends MarkdownExtra
 
 
 
-    // === DefinitionList ==================
+    // === Accordion ==================
     /**
      * @param string $line
      * @param array $lines
      * @param int $current
      * @return bool
      */
+    protected function identifyAccordion(string $line, array $lines, int $current): bool
+    {
+        // if next line starts with ':: ' or '::::', it's an accordion:
+        if (!($line1 = ($lines[$current+1]??''))) {
+            return false;
+        }
+        if (str_starts_with($line1, ':: ') || str_starts_with($line1, '::::') ) {
+            return true;
+        } elseif (preg_match('/^\{:.*?}$/', $line) && str_starts_with($lines[$current+2]??'', ':: ')) {
+            return true;
+        }
+        return false;
+    } // identifyAccordion
+
+    /**
+     * @param array $lines
+     * @param int $current
+     * @return array
+     */
+    protected function consumeAccordion(array $lines, int $current): array
+    {
+        // create block array
+        $block = [
+            'Accordion',
+            'content' => [],
+            'attrs' => '',
+        ];
+
+        if (preg_match('/^\{:(.*?)}$/', $lines[$current], $m)) {
+            $block['attrs'] = $m[1];
+            $current++;
+        }
+
+        // consume all lines until 2 empty line
+        $nEmptyLines = 0;
+        $elemInx = -1;
+        for($i = $current, $count = count($lines)-1; $i < $count; $i++) {
+            if (!$lines[$i]) {
+                if ($nEmptyLines++ < 1) {
+                    continue;
+                }
+                break;
+            }
+            if (!str_starts_with($lines[$i], '::')) {
+                if (str_starts_with($lines[$i+1], '::::')) { // body wrapped in '::::' lines:
+                    $elemInx++;
+                    $block['content'][$elemInx]['summary'] = $lines[$i++];
+                    $block['content'][$elemInx]['body'] = '';
+                    while (($i < $count) && !str_starts_with($lines[$i + 1], '::::')) {
+                        $i++;
+                        $block['content'][$elemInx]['body'] .= "\n".$lines[$i];
+                    }
+                    $i++;
+
+                } elseif (str_starts_with($lines[$i+1], '::')) { // body defined by leading '::':
+                    $elemInx++;
+                    $block['content'][$elemInx]['summary'] = $lines[$i++];
+                    $block['content'][$elemInx]['body'] = substr($lines[$i], 3);
+                    while (($i < $count) && str_starts_with($lines[$i + 1], '::')) {
+                        $i++;
+                        $s = substr($lines[$i], 2);
+                        if (($s[3] ?? '') === ' ') {
+                            $s = substr($s, 1);
+                        }
+                        $block['content'][$elemInx]['body'] .= "\n$s";
+                    }
+                    $nEmptyLines = 0;
+                }
+            } else {
+                break;
+            }
+        }
+        return [$block, $i-1];
+    } // consumeAccordion
+
+    /**
+     * @param array $block
+     * @return string
+     * @throws Exception
+     */
+    protected function renderAccordion(array $block): string
+    {
+        if ($block['attrs']) {
+            $attrs = MdPlusHelper::parseInlineBlockArguments('.mdp-accordion '.$block['attrs']);
+            $attrsStr = $attrs['htmlAttrs'];
+        } else {
+            $attrsStr = ' class="mdp-accordion"';
+        }
+        $out = '';
+        foreach ($block['content'] as $item) {
+            $summary = trim(self::compileParagraph($item['summary'], true));
+            $body = self::compile($item['body']);
+            $out .= <<<EOT
+
+<details>
+  <summary>$summary</summary>
+  <div class="mdp-accordion-body">
+$body
+  </div>
+</details>
+
+EOT;
+
+        }
+        $out = $this->catchAndInjectTagAttributes($out);
+        $out = <<<EOT
+
+<div $attrsStr>
+$out</div><!-- /accordion -->
+
+
+EOT;
+        return $out;
+    } // renderAccordion
+
+
+
     protected function identifyDefinitionList(string $line, array $lines, int $current): bool
     {
         // if next line starts with ': ', it's a dl:
-        if (isset($lines[$current+1]) && strncmp($lines[$current+1]??'', ': ', 2) === 0) {
+        if (!($line1 = ($lines[$current+1]??''))) {
+            return false;
+        }
+        if (str_starts_with($line1, ': ')) {
             return true;
-        } elseif (preg_match('/^\{:.*?}$/', $line) && strncmp($lines[$current+2]??'', ': ', 2) === 0) {
+        } elseif (preg_match('/^\{:.*?}$/', $line) && str_starts_with($lines[$current+2]??'', ': ')) {
             return true;
         }
         return false;
@@ -628,7 +748,7 @@ class MarkdownPlus extends MarkdownExtra
 
         // consume all lines until 2 empty line
         $nEmptyLines = 0;
-        $dt = -1;
+        $elemInx = -1;
         for($i = $current, $count = count($lines); $i < $count-1; $i++) {
             if (!$lines[$i]) {
                 if ($nEmptyLines++ < 1) {
@@ -636,13 +756,13 @@ class MarkdownPlus extends MarkdownExtra
                 }
                 break;
             }
-            if (($lines[$i][0] !== ':') && (($lines[$i+1][0]??' ') === ':')) {
-                $dt++;
-                $block['content'][$dt]['dt'] = $lines[$i++];
-                $block['content'][$dt]['dd'] = substr($lines[$i],1);
-                while (($lines[$i+1][0]??' ') === ':') {
+            if (!str_starts_with($lines[$i], ':') && str_starts_with($lines[$i+1], ':')) {
+                $elemInx++;
+                $block['content'][$elemInx]['dt'] = $lines[$i++];
+                $block['content'][$elemInx]['dd'] = substr($lines[$i],1);
+                while (str_starts_with($lines[$i+1], ':')) {
                     $i++;
-                    $block['content'][$dt]['dd'] .= "\n".substr($lines[$i],1);
+                    $block['content'][$elemInx]['dd'] .= "\n".substr($lines[$i],1);
                 }
                 $nEmptyLines = 0;
             } else {

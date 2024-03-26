@@ -1856,7 +1856,7 @@ EOT;
             // for all instances, warp them into <abbr>:
             foreach (self::$abbr as $key => $value) {
                 if (str_contains($str, $key)) {
-                    $value = shieldStr("<abbr class='pfy-tippy' title='$value'>$key</abbr>");
+                    $value = shieldStr("<abbr class='pfy-tippy' title='$value'>$key</abbr>", 'inline');
                     $str = preg_replace("/\b$key\b/m", $value, $str);
                 }
             }

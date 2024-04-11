@@ -111,9 +111,10 @@ class Permission
     {
         $session = kirby()->session();
         $page = page()->id();
+        $accessCodeKey = kirby()->option('pgfactory.markdownplus.options.accessCodeKey', 'a');
 
         // check whether there is an access code in url-args:
-        if (!isset($_GET['a'])) {
+        if (!isset($_GET[$accessCodeKey])) {
             // check whether already granted:
             if ($email = $session->get('pfy.accessCodeUser')) {
                 $user = kirby()->user($email);
@@ -127,8 +128,8 @@ class Permission
 
         } else {
             // get access code:
-            $submittedAccessCode = get('a', null);
-            unset($_GET['a']);
+            $submittedAccessCode = get($accessCodeKey, null);
+            unset($_GET[$accessCodeKey]);
         }
 
         // first check against AccessCode of users:

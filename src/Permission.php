@@ -228,6 +228,23 @@ class Permission
 
 
     /**
+     * Checks login state, taking login via access code into account
+     * @return bool
+     */
+    public static function isLoggedIn(): bool
+    {
+        if (kirby()->user() !== null) {
+            return true;
+        }
+        $session = kirby()->session();
+        if ($email = $session->get('pfy.accessCodeUser')) {
+            return (bool)kirby()->user($email);
+        }
+        return false;
+    } // isLoggedIn
+
+
+    /**
      * Check if a given ip is in a network
      * @param  string $ip    IP to check in IPV4 format eg. 127.0.0.1
      * @param  string $range IP/CIDR netmask eg. 127.0.0.0/24, also 127.0.0.1 is accepted and /32 assumed

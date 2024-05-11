@@ -186,7 +186,7 @@ class MdPlusHelper
         } else {
             $str = svg($iconFile);
             $str = str_replace("\n", '', $str);
-            if (!preg_match('|(<svg.*?>)(.*)</svg>|', $str, $m)) {
+            if (!preg_match('|(<svg.*?>)(.*)</svg>|ms', $str, $m)) {
                 throw new Exception("Error in code of icon '$iconName'");
             }
             $svg = $m[1];

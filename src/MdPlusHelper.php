@@ -211,12 +211,13 @@ class MdPlusHelper
     public static function shieldStr(string $str, mixed $options = false): string
     {
         $ch1 = $options[0]??'';
+        $base64 = rtrim(base64_encode($str), '=');
         if ($ch1 === 'm') {
-            return '<'.MD_SHIELD.'>' . base64_encode($str) . '</'.MD_SHIELD.'>';
+            return '<'.MD_SHIELD.">$base64</".MD_SHIELD.'>';
         } elseif ($ch1 === 'i') {
-            return '<'.INLINE_SHIELD.'>' . base64_encode($str) . '</'.INLINE_SHIELD.'>';
+            return '<'.INLINE_SHIELD.">$base64</".INLINE_SHIELD.'>';
         } else {
-            return '<'.BLOCK_SHIELD.'>' . base64_encode($str) . '</'.BLOCK_SHIELD.'>';
+            return '<'.BLOCK_SHIELD.">$base64</".BLOCK_SHIELD.'>';
         }
     } // shieldStr
 
@@ -230,6 +231,10 @@ class MdPlusHelper
      */
     public static function unshieldStr(string $str, bool $unshieldLiteral = null): string
     {
+        if (!str_contains($str, '<')) {
+            return $str;
+        }
+
         if ($unshieldLiteral !== false) {
             $str = preg_replace('#(&lt;|<)(/?)('.INLINE_SHIELD.'|'.BLOCK_SHIELD.'|'.MD_SHIELD.')(&gt;|>)#', "<$2$3>", $str);
             if (preg_match_all('/<('.INLINE_SHIELD.'|'.BLOCK_SHIELD.')>(.*?)<\/('.INLINE_SHIELD.'|'.BLOCK_SHIELD.')>/m', $str, $m)) {

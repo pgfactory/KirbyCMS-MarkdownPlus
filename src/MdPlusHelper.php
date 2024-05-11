@@ -6,6 +6,8 @@ use Kirby\Data\Yaml as Yaml;
 use Kirby\Data\Json as Json;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
+use PgFactory\PageFactory\PageFactory;
+use function PgFactory\PageFactory\indentLines;
 
 const MDPMD_CACHE_PATH =       'site/cache/markdownplus/';
 const MDPMD_MKDIR_MASK =       0700;
@@ -20,6 +22,7 @@ class MdPlusHelper
      * @var array
      */
     private static array $availableIcons = [];
+    private static array $processedSvgIcons = [];
 
 
     /**
@@ -130,24 +133,72 @@ class MdPlusHelper
 
     /**
      * Renders an icon specified by its name.
+     *   $iconName may be written as ':icon_name:'
+     *   $iconName may contain title as 'icon_name/title text...'
      * @param string $iconName
      * @return string
      * @throws Exception
      */
-    public static function renderIcon(string $iconName): string
+    public static function renderIcon(string $iconName, string $title = '', bool $throwError = false): string
     {
+        $iconName0 = $iconName;
+        if (preg_match('/^:(.*?):(.*)/', $iconName, $m)) {
+            $iconName = $m[1].$m[2];
+        }
+
+        if (str_contains($iconName, '/')) {
+            list($iconName, $title) = explode('/', $iconName, 2);
+        }
+
+        if ($title) {
+            $title = " title='$title'";
+        }
         $iconFile = self::$availableIcons[$iconName] ?? false;
         if (!$iconFile || !file_exists($iconFile)) {
-            throw new Exception("Error: icon '$iconName' not found.");
+            if ($throwError) {
+                throw new Exception("Error: icon '$iconName' not found.");
+            }
+            return $iconName0;
         }
 
         if (str_ends_with($iconFile, '.svg')) {
-            $icon = "<span class='mdp-icon'>".svg($iconFile).'</span>';
+            $icon = self::renderSvgIcon($iconName, $iconFile);
+            $icon = "<span class='mdp-icon'$title>$icon</span>";
         } else {
-            $icon = "<span class='mdp-icon'><img src='$iconFile' alt=''></span>";
+            $icon = "<span class='mdp-icon'$title><img src='$iconFile' alt=''></span>";
         }
         return $icon;
     } // renderIcon
+
+
+    /**
+     * Appends the svg source to end of body, returns an svg reference (<use...>)
+     * @param string $iconName
+     * @param string $iconFile
+     * @return string
+     * @throws Exception
+     */
+    private static function renderSvgIcon(string $iconName, string $iconFile): string
+    {
+        $iconId = "pfy-iconsrc-$iconName";
+        if (isset(self::$processedSvgIcons[$iconName])) {
+            $icon = self::$processedSvgIcons[$iconName];
+        } else {
+            $str = svg($iconFile);
+            $str = str_replace("\n", '', $str);
+            if (!preg_match('|(<svg.*?>)(.*)</svg>|', $str, $m)) {
+                throw new Exception("Error in code of icon '$iconName'");
+            }
+            $svg = $m[1];
+            $icon = "$svg<use href='#$iconId' /></svg>";
+            $svg = '<svg style="display:none" aria-hidden="true" focusable="false">' .substr($svg,4);
+            $svgBody = $m[2];
+            $str = "$svg<symbol id='$iconId'>$svgBody</symbol></svg>";
+            PageFactory::$pg->addBodyEndInjections($str);
+            self::$processedSvgIcons[$iconName] = $icon;
+        }
+        return $icon;
+    } // renderSvgIcon
 
 
     /**

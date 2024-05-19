@@ -191,7 +191,7 @@ class MdPlusHelper
             }
             $svg = $m[1];
             $icon = "$svg<use href='#$iconId' /></svg>";
-            $svg = '<svg style="display:none" aria-hidden="true" focusable="false">' .substr($svg,4);
+            $svg = '<svg style="display:none" aria-hidden="true" focusable="false"' .substr($svg,4);
             $svgBody = $m[2];
             $str = "$svg<symbol id='$iconId'>$svgBody</symbol></svg>";
             PageFactory::$pg->addBodyEndInjections($str);

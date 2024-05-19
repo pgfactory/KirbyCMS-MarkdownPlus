@@ -24,6 +24,33 @@ const INLINE_ELEMENTS = "a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,i
 'output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,";
   // 'skip' is a pseudo tag used by MarkdownPlus.
 const ABBREVIATIONS_FILE    = 'site/custom/variables/abbreviations.txt';
+const SMARTYPANTS_FILE    = 'site/custom/variables/smartypants.txt';
+
+const SMARTYPANTS = [
+    '/(?<!-)-&gt;/ms'  => '&rarr;',
+    '/(?<!=)=&gt;/ms'  => '&rArr;',
+    '/(?<!!)&lt;-/ms'  => '&larr;',
+    '/(?<!=)&lt;=/ms'  => '&lArr;',
+    '/(?<!\.)\.\.\.(?!\.)/ms'  => '&hellip;',
+    '/(?<!-|!)--(?!-|>)/ms'  => '&ndash;', // in particular: <!-- -->
+    '/(?<!-)---(?!-)/ms'  => '&mdash;',
+    '/(?<!&lt;)&lt;<(?!&lt;)/ms'  => '&#171;',      // <<
+    '/(?<!&lt;)&lt;&lt;(?!&lt;)/ms'  => '&#171;',   // <<
+    '/(?<!&gt;)>&gt;(?!&gt;)/ms'  => '&#187;',      // >>
+    '/(?<!&gt;)&gt;&gt;(?!&gt;)/ms'  => '&#187;',   // >>
+    '/\bEURO\b/ms'  => '&euro;',
+    //'/sS/ms'  => 'ß',
+    '|1/4|ms'  => '&frac14;',
+    '|1/2|ms'  => '&frac12;',
+    '|3/4|ms'  => '&frac34;',
+    '|0/00|ms'  => '&permil;',
+    '/(?<!,),,(?!,)/ms'  => '„',
+    "/(?<!')''(?!')/ms"  => '”',
+    "/(?<!`)``(?!`)/ms"  => '“',
+    "/(?<!~)~~(?!~)/ms"  => '≈',
+    '/\bINFINITY\b/ms'  => '∞',
+];
+
 
 class MarkdownPlus extends MarkdownExtra
 {
@@ -40,6 +67,7 @@ class MarkdownPlus extends MarkdownExtra
     private bool $removeComments;
     public  static $lang;
     private static array $abbr = [];
+    private static array $smartypants = [];
 
     /**
      */
@@ -1310,30 +1338,24 @@ EOT;
         if (!$this->enableSmartypants) {
             return $str;
         }
-        $smartypants =    [
-                '/(?<!-)-&gt;/ms'  => '&rarr;',
-                '/(?<!=)=&gt;/ms'  => '&rArr;',
-                '/(?<!!)&lt;-/ms'  => '&larr;',
-                '/(?<!=)&lt;=/ms'  => '&lArr;',
-                '/(?<!\.)\.\.\.(?!\.)/ms'  => '&hellip;',
-                '/(?<!-|!)--(?!-|>)/ms'  => '&ndash;', // in particular: <!-- -->
-                '/(?<!-)---(?!-)/ms'  => '&mdash;',
-                '/(?<!&lt;)&lt;<(?!&lt;)/ms'  => '&#171;',      // <<
-                '/(?<!&lt;)&lt;&lt;(?!&lt;)/ms'  => '&#171;',   // <<
-                '/(?<!&gt;)>&gt;(?!&gt;)/ms'  => '&#187;',      // >>
-                '/(?<!&gt;)&gt;&gt;(?!&gt;)/ms'  => '&#187;',   // >>
-                '/\bEURO\b/ms'  => '&euro;',
-                //'/sS/ms'  => 'ß',
-                '|1/4|ms'  => '&frac14;',
-                '|1/2|ms'  => '&frac12;',
-                '|3/4|ms'  => '&frac34;',
-                '|0/00|ms'  => '&permil;',
-                '/(?<!,),,(?!,)/ms'  => '„',
-                "/(?<!')''(?!')/ms"  => '”',
-                "/(?<!`)``(?!`)/ms"  => '“',
-                "/(?<!~)~~(?!~)/ms"  => '≈',
-                '/\bINFINITY\b/ms'  => '∞',
-        ];
+
+        // check for custom smartypants definitons:
+        if (self::$smartypants) {
+            $smartypants = self::$smartypants;
+
+        } else {
+            if (file_exists(SMARTYPANTS_FILE)) {
+                $smartypants = [];
+                $lines = explodeTrim("\n", getFile(SMARTYPANTS_FILE, 'z,h'), true);
+                foreach ($lines as $line) {
+                    list($key, $value) = explode(': ', $line);
+                    $smartypants[$key] = $value;
+                }
+                self::$smartypants = $smartypants;
+            } else {
+                $smartypants = SMARTYPANTS;
+            }
+        }
 
         $out = '';
         list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<tt>', '</tt>');
@@ -1576,7 +1598,8 @@ EOT;
      */
     private function handleLineBreaks(string $str): string
     {
-        return preg_replace("/(\\\\\n|\s(?<!\\\)BR\s)/m", "<br>\n", $str);
+        $str = str_replace([' BR ',"\nBR ","\nBR\n"], ['<br>', "\n<br> ", "\n<br>\n"], $str);
+        return $str;
     } // handleLineBreaks
 
 

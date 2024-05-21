@@ -255,6 +255,32 @@ class MdPlusHelper
     } // unshieldStr
 
 
+    public static function autoConvertLinks(string $str): string
+    {
+        $autoWrapUrls = (page()->autowrapurls()->value() === 'true') || kirby()->option('pgfactory.markdownplus.options.autoLinks');
+        if (!$autoWrapUrls) {
+            return $str;
+        }
+        if (preg_match_all("/[\w.'-]{1,50} @ [\w.'-]{1,30} \. \w{1,10} /xms", $str, $m)) {
+            foreach ($m[0] as $i => $item) {
+                $url = $text = $item;
+                $url = str_replace('@', '&#64;', $url);
+                $url = "mailto:$url";
+                $item = self::shieldStr("<a href='$url'>$text</a>");
+                $str = str_replace($m[0][$i], $item, $str);
+            }
+        } elseif (preg_match_all("|https?:// ([\w.'/-]{1,50} \. \w{1,10} [\w./-]{1,50}) |xms", $str, $m)) {
+            foreach ($m[0] as $i => $item) {
+                $url = $item;
+                $url = str_replace('.', '&#46;', $url);
+                $item = self::shieldStr("<a href='$url' target='_blank'>$url</a>");
+                $str = str_replace($m[0][$i], $item, $str);
+            }
+        }
+        return $str;
+    } // autoConvertLinks
+
+
     /**
      * @param string $mdStr
      * @param bool $asParagraph

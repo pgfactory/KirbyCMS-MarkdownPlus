@@ -221,6 +221,9 @@ class MarkdownPlus extends MarkdownExtra
                     $colspan++;
                     continue;
                 } elseif ($cell) {
+                    if ($cell[0] === ' ') {
+                        $cell = substr($cell,1);
+                    }
                     $cell = self::compile($cell, omitPWrapperTag: true);
                 }
                 $colspanAttr = '';
@@ -1317,6 +1320,8 @@ EOT;
         }
 
         $str = $this->catchAndInjectTagAttributes($str); // ... {: .cls}
+
+        $str = MdPlusHelper::autoConvertLinks($str);
 
         $str = MdPlusHelper::unshieldStr($str);
 

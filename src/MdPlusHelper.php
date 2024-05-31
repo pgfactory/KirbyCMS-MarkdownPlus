@@ -483,6 +483,10 @@ class MdPlusHelper
                 $style = $style? " $style display:none;" : 'display:none;';
 
             } elseif ($cmd === 'showtill') {
+                // if no time defined, round up to end of day:
+                if (!preg_match('/\d\d:\d\d/', $arg)) {
+                    $arg .= ' 23:59';
+                }
                 $t = strtotime($arg) - time();
                 if ($t < 0) {
                     $lang = 'none';

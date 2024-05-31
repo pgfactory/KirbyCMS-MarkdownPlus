@@ -83,6 +83,9 @@
   height: var(--mdp-icon-size, 1em);
   transform: translateY(0.12em);
 }
+a .mdp-icon {
+  margin-right: 0.2em;
+}
 .mdp-icon > * {
   position: absolute;
   bottom: 0;

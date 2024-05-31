@@ -19,10 +19,21 @@ include_once __DIR__ . '/MdPlusHelper.php';
 
  // HTML tags that must not have a closing tag:
 const MDPMD_SINGLETON_TAGS =   'img,input,br,hr,meta,embed,link,source,track,wbr,col,area';
-const DEFAULT_TABULATOR_WIDTH = '6em';
 const INLINE_ELEMENTS = "a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,map,object,'.
 'output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,";
   // 'skip' is a pseudo tag used by MarkdownPlus.
+ // the following KirbyTags are identified:
+const SUPPORTED_KIRBYTAGS = 'date|email|file|gist|image|link|tel|twitter|video';
+ // this is the regex pattern to catch KirbyTags:
+const SUPPORTED_KIRBY_TAGS_PATTERN = '\( ('.SUPPORTED_KIRBYTAGS.') :';
+ // the following KirbyTags are intercepted and processed by PageFactory:
+const KIRBYTAG_PATTERNS = [
+    'link' => '(link:',
+    'file' => '(file:',
+    'image' => '(image:',
+    'date' => '(date:',
+    'email' => '(email:'
+];
 const ABBREVIATIONS_FILE    = 'site/custom/variables/abbreviations.txt';
 const SMARTYPANTS_FILE    = 'site/custom/variables/smartypants.txt';
 
@@ -679,7 +690,8 @@ class MarkdownPlus extends MarkdownExtra
                         $i++;
                         $block['content'][$elemInx]['body'] .= "\n".$lines[$i];
                     }
-                    $i++;
+                    $i += 2;
+                    break;
 
                 } elseif (str_starts_with($lines[$i+1], '::')) { // body defined by leading '::':
                     $elemInx++;
@@ -731,7 +743,6 @@ $body
 EOT;
 
         }
-        $out = $this->catchAndInjectTagAttributes($out);
         $out = <<<EOT
 
 <div $attrsStr>
@@ -1470,62 +1481,71 @@ EOT;
             return $str;
         }
 
-
-        // special case: string starts with attrib-def, i.e. no surrounding tags:
-        if (preg_match('|^\s*(?<!\\\){:(.*?)}\s*(.*)|', $str, $m)) {
-            $attrs = MdPlusHelper::parseInlineBlockArguments($m[1]);
-            $attrsStr = $attrs['htmlAttrs'];
-            if ($this->isParagraphContext) {
-                $str = "<span$attrsStr>$m[2]</span>";
-            } else {
-                $str = "<div$attrsStr>$m[2]</div>";
+        if (!str_contains($str, "\n")) {
+            // one line only:
+            $attrs = [];
+            $origPattern = false;
+            if (preg_match('/\{:(.*?)}/', $str, $m)) {
+                $attrs = MdPlusHelper::parseInlineBlockArguments($m[1]);
+                $origPattern = $m[0];
             }
-            return $str;
+            $tag = $attrs['tag'] ?: $attrs['text'];
 
-        // case string contains no leading HTML tag -> wrap it:
-        } elseif (!preg_match('/(?<!\\\)<\w+/', $str)) {
-            if ($this->isParagraphContext) {
-                $str = "<span>$str</span>";
-            } else {
-                $str = "<div>$str</div>";
+            if (preg_match('|^\s*{:(.*?)}\s*(.*)|', $str, $m)) {
+                $attrsStr = $attrs['htmlAttrs'];
+                if (!$tag) {
+                    $tag = $this->isParagraphContext ? 'span' : 'div';
+                }
+                $str = "<$tag$attrsStr>$m[2]</$tag>";
+
+                // case string contains no leading HTML tag -> wrap it:
+            } elseif (!preg_match('/<\w+/', $str)) {
+                if (!$tag) {
+                    $tag = $this->isParagraphContext ? 'span' : 'div';
+                }
+                $str = "<$tag{$attrs['htmlAttrs']}>$str</$tag>";
             }
-        }
+            $str = str_replace($origPattern, '', $str);
 
-        // run through HTML line by line:
-        $lines = explode("\n", $str);
-        $attrDescr = false;
-        $nLines = sizeof($lines);
-        for ($i=0; $i<$nLines; $i++) {
-            $line = &$lines[$i];
-            
-            // case attribs found and not consumed yet -> apply to following tag:
-            if ($attrDescr) {
+        } else {
+            // multiple lines:
+            $lines = explode("\n", $str);
+            $attrDescr = false;
+            $nLines = sizeof($lines);
+            for ($i=0; $i<$nLines; $i++) {
+                $line = &$lines[$i];
+
+                // case attribs found and not consumed yet -> apply to following tag:
+                if ($attrDescr) {
+                    if (preg_match('/(\s*)(<.*?>)/', $line, $mm)) {
+                        $line = $mm[1].$this->applyAttributes($line, $attrDescr, $mm[2]);
+                    }
+                    $attrDescr = false;
+                    continue;
+                }
+
+                // line with nothing but attr descriptor:
+                if (preg_match('|^<p> \s* {:(.*?)} \s* </p> $|x', $line, $m)) {
+                    $attrDescr = $m[1];
+                    unset($lines[$i]);
+                    continue;
+                }
+
+                if (!preg_match('|(.*) {:(.*?)} (.*)|x', $line, $m)) {
+                    continue;
+                }
+                $attrDescr = $m[2];
+                $line = $m[1].$m[3];
                 if (preg_match('/(\s*)(<.*?>)/', $line, $mm)) {
                     $line = $mm[1].$this->applyAttributes($line, $attrDescr, $mm[2]);
+                    $attrDescr = false;
                 }
-                $attrDescr = false;
-                continue;
-            }
 
-            // line with nothing but attr descriptor:
-            if (preg_match('|^<p> \s* {:(.*?)} \s* </p> $|x', $line, $m)) {
-                $attrDescr = $m[1];
-                unset($lines[$i]);
-                continue;
             }
-
-            if (!preg_match('|(.*) {:(.*?)} (.*)|x', $line, $m)) {
-                continue;
-            }
-            $attrDescr = $m[2];
-            $line = $m[1].$m[3];
-            if (preg_match('/(\s*)(<.*?>)/', $line, $mm)) {
-                $line = $mm[1].$this->applyAttributes($line, $attrDescr, $mm[2]);
-                $attrDescr = false;
-            }
+            $str = implode("\n", $lines);
 
         }
-        return implode("\n", $lines);
+        return $str;
     } // catchAndInjectTagAttributes
 
 
@@ -1766,37 +1786,46 @@ EOT;
      */
     private function handleKirbyTags(string $str): string
     {
-        if (preg_match_all('/( \( (date|email|file|gist|image|link|tel|twitter|video) : .*? \) )/xms', $str, $m)) {
-            foreach ($m[1] as $i => $value) {
-                // check whether it's part of a macro call, skip if so:
-                $pat = '\{\{\s*[\w-]+'.str_replace('|', '\\|', preg_quote($value));
-                if (preg_match("|$pat|", $str)) {
-                    continue;
-                }
-
-                $value = strip_tags(str_replace("\n", ' ', $value));
-                $res = false;
-
-                // intercept '(link:' and process by link() macro:
-                if (preg_match('/^ \(link: \s* ["\']? ([^\s"\']+) ["\']? (.*) \) /x', $value, $mm)) {
-                    $args = "url:'$mm[1]' $mm[2]";
-                    $res = $this->processByMacro('link', $args);
-
-                // intercept '(image:' and process by img() macro:
-                } elseif (preg_match('/^ \(image: \s* ["\']? ([^\s"\']+) ["\']? (.*) \) /x', $value, $mm)) {
-                    $args = "src:'$mm[1]' $mm[2]";
-                    $res = $this->processByMacro('img', $args);
-
-                }
-                if ($res === false) {
-                    // (file: ~/assets/test.pdf text: Download File)
-                    $res = kirby()->kirbytags($value);
-                }
-                $str = str_replace($m[0][$i], $res, $str);
-            }
+        if (!preg_match('/'.SUPPORTED_KIRBY_TAGS_PATTERN.'.* \)/xms', $str)) {
+            return $str;
+        }
+        $rest = $str;
+        $str = '';
+        while (preg_match('/(?<!\\\)'.SUPPORTED_KIRBY_TAGS_PATTERN.'/xms', $rest, $m, PREG_OFFSET_CAPTURE)) {
+            $p1 = $m[0][1];
+            list ($p1, $p2) = MdPlusHelper::strPosMatching($rest, $p1, '(', ')');
+            $str = substr($rest, 0, $p1);
+            $kirbyTag = substr($rest, $p1, $p2-$p1+1);
+            $rest = substr($rest, $p2+1);
+            $res = $this->processKirbyTag($kirbyTag);
+            $str .= "$res$rest";
+            $rest = $str;
         }
         return $str;
     } // handleKirbyTags
+
+
+    public function processKirbyTag($kirbyTag) {
+        foreach (KIRBYTAG_PATTERNS as $macro => $pattern) {
+            if (str_starts_with($kirbyTag, $pattern)) {
+                $args = trim(substr($kirbyTag, strlen($pattern)), ' )');
+
+                if (in_array($macro, ['link', 'file', 'image']) && !preg_match('#^(https?://|~|\.\.)#', $args)) {
+                    $args = str_contains($args, '/') ? "~/$args" : "~page/$args";
+                }
+
+                if ($macro === 'file') {
+                    $args .= ', download:true';
+                } elseif ($macro === 'email') {
+                    $args .= ', type:mail';
+                }
+
+                $res = $this->processByMacro($macro === 'date' ? '_date' : ($macro === 'image' ? 'img' : 'link'), $args);
+                return $res;
+            }
+        }
+        return kirbytags($kirbyTag);
+    } // processKirbyTag
 
 
     /**

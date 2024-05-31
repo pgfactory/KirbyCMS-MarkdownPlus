@@ -640,13 +640,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     protected function identifyAccordion(string $line, array $lines, int $current): bool
     {
-        // if next line starts with ':: ' or '::::', it's an accordion:
-        if (!($line1 = ($lines[$current+1]??''))) {
-            return false;
-        }
-        if (str_starts_with($line1, ':: ') || str_starts_with($line1, '::::') ) {
-            return true;
-        } elseif (preg_match('/^\{:.*?}$/', $line) && str_starts_with($lines[$current+2]??'', ':: ')) {
+        if (preg_match('/^<\d*>.+/', $line, $m)) {
             return true;
         }
         return false;
@@ -662,56 +656,34 @@ class MarkdownPlus extends MarkdownExtra
         // create block array
         $block = [
             'Accordion',
-            'content' => [],
+            'content' => '',
+            'summary' => '',
             'attrs' => '',
+            'accordionAttrs' => '',
         ];
 
-        if (preg_match('/^\{:(.*?)}$/', $lines[$current], $m)) {
-            $block['attrs'] = $m[1];
-            $current++;
+        if (preg_match('/\{: (.*?) } \s* $/x', $lines[$current], $m)) {
+            $block['accordionAttrs'] = $m[1];
+            $lines[$current] = str_replace($m[0], '', $lines[$current]);
         }
 
-        // consume all lines until 2 empty line
-        $nEmptyLines = 0;
-        $elemInx = -1;
-        for($i = $current, $count = count($lines)-1; $i < $count; $i++) {
-            if (!$lines[$i]) {
-                if ($nEmptyLines++ < 1) {
-                    continue;
-                }
-                break;
-            }
-            if (!str_starts_with($lines[$i], '::')) {
-                if (str_starts_with($lines[$i+1], '::::')) { // body wrapped in '::::' lines:
-                    $elemInx++;
-                    $block['content'][$elemInx]['summary'] = $lines[$i++];
-                    $block['content'][$elemInx]['body'] = '';
-                    while (($i < $count) && !str_starts_with($lines[$i + 1], '::::')) {
-                        $i++;
-                        $block['content'][$elemInx]['body'] .= "\n".$lines[$i];
-                    }
-                    $i += 2;
-                    break;
+        if (!preg_match('/^(<\d*>) \s* (.*)/x', $lines[$current], $m)) {
+            throw new Exception("Syntax error in line $current: '{$lines[$current]}'");
+        }
+        $marker = $m[1];
+        $block['summary'] = $m[2];
+        $endPattern = "|^$marker\s*$|";
 
-                } elseif (str_starts_with($lines[$i+1], '::')) { // body defined by leading '::':
-                    $elemInx++;
-                    $block['content'][$elemInx]['summary'] = $lines[$i++];
-                    $block['content'][$elemInx]['body'] = substr($lines[$i], 3);
-                    while (($i < $count) && str_starts_with($lines[$i + 1], '::')) {
-                        $i++;
-                        $s = substr($lines[$i], 2);
-                        if (($s[3] ?? '') === ' ') {
-                            $s = substr($s, 1);
-                        }
-                        $block['content'][$elemInx]['body'] .= "\n$s";
-                    }
-                    $nEmptyLines = 0;
-                }
+        // consume all lines until $marker, e.g. <>
+        for($i = $current+1, $count = count($lines)-1; $i < $count; $i++) {
+            $line = $lines[$i];
+            if (!preg_match($endPattern, $line)) {
+                $block['content'] .= "$line\n";
             } else {
                 break;
             }
         }
-        return [$block, $i-1];
+        return [$block, $i];
     } // consumeAccordion
 
     /**
@@ -721,20 +693,19 @@ class MarkdownPlus extends MarkdownExtra
      */
     protected function renderAccordion(array $block): string
     {
-        if ($block['attrs']) {
-            $attrs = MdPlusHelper::parseInlineBlockArguments('.mdp-accordion '.$block['attrs']);
+        if ($accordionAttrs = $block['accordionAttrs']) {
+            $attrs = MdPlusHelper::parseInlineBlockArguments('.mdp-accordion '.$accordionAttrs);
             $attrsStr = $attrs['htmlAttrs'];
         } else {
             $attrsStr = ' class="mdp-accordion"';
         }
+
         $out = '';
-        foreach ($block['content'] as $item) {
-            $summary = trim(self::compileParagraph($item['summary'], true));
-            $body = self::compile($item['body']);
-            $out .= <<<EOT
+        $body = self::compile($block['content']);
+        $out .= <<<EOT
 
 <details>
-  <summary>$summary</summary>
+  <summary>{$block['summary']}</summary>
   <div class="mdp-accordion-body">
 $body
   </div>
@@ -742,7 +713,6 @@ $body
 
 EOT;
 
-        }
         $out = <<<EOT
 
 <div $attrsStr>
@@ -752,7 +722,6 @@ $out</div><!-- /accordion -->
 EOT;
         return $out;
     } // renderAccordion
-
 
 
     protected function identifyDefinitionList(string $line, array $lines, int $current): bool
@@ -1462,7 +1431,9 @@ EOT;
                 if (($lines[$i-1]??false) && !preg_match('/^\d+!?\./', $lines[$i-1], $m)) {
                     $lines[$i-1] .= "\n";
                 }
-            } elseif (($line[0] === '<') && ($line[strlen($line)-1] === '>')) {
+
+            // catch lines containing but HTML, but ignore Accordion pattern '<\d*>':
+            } elseif (preg_match('|^<\D+>\s*$|', $line)) {
                 $lines[$i] = "<literal>$line</literal>";
             }
         }

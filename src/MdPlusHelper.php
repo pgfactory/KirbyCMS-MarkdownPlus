@@ -186,6 +186,7 @@ class MdPlusHelper
         } else {
             $str = svg($iconFile);
             $str = str_replace("\n", '', $str);
+            $str = preg_replace('|<\?xml.*?\?>|', '', $str); // remove svg prolog when embedded in HTML
             if (!preg_match('|(<svg.*?>)(.*)</svg>|ms', $str, $m)) {
                 throw new Exception("Error in code of icon '$iconName'");
             }
@@ -320,7 +321,7 @@ class MdPlusHelper
      */
     public static function parseInlineBlockArguments(string $str): array
     {
-        $tag = $id = $class = $style = $text = $lang = '';
+        $tag = $id = $class = $style = $text = $lang = $aux ='';
         $literal = $inline = 0;
         $attr = [];
 
@@ -383,11 +384,11 @@ class MdPlusHelper
                     }
                     break;
                 case '!':
-                    $str = self::_parseMetaCmds($str, $lang, $literal, $inline, $style, $tag);
+                    $str = self::_parseMetaCmds($str, $lang, $literal, $inline, $style, $tag, $aux);
                     break;
                 case '"':
                     if (($p = strpos($str, '"')) !== false) {
-                        $t = substr($str, 0, $p-1);
+                        $t = substr($str, 0, $p);
                         $str = substr($str, $p+1);
                         $text = $text ? "$text $t" : $t;
                     }
@@ -395,7 +396,7 @@ class MdPlusHelper
                     break;
                 case "'":
                     if (($p = strpos($str, '\'')) !== false) {
-                        $t = substr($str, 0, $p-1);
+                        $t = substr($str, 0, $p);
                         $str = substr($str, $p+1);
                         $text = $text ? "$text $t" : $t;
                     }
@@ -409,7 +410,7 @@ class MdPlusHelper
             $inline = null;
         }
         $style = trim($style);
-        list($htmlAttrs, $htmlAttrArray) = self::_assembleHtmlAttrs($id, $class, $style, $attr);
+        list($htmlAttrs, $htmlAttrArray) = self::_assembleHtmlAttrs($id, $class, $style, $attr, $aux);
 
         return [
             'tag' => $tag,
@@ -436,7 +437,7 @@ class MdPlusHelper
      * @param string $style
      * @param string $tag
      */
-    private static function _parseMetaCmds(string $str, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag): string
+    private static function _parseMetaCmds(string $str, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag, string &$aux): string
     {
         if (preg_match('/^([\w-]+) [=:]? (.*) /x', $str, $m)) {
             $cmd = strtolower($m[1]);
@@ -496,6 +497,8 @@ class MdPlusHelper
                     $tag = 'skip';
                     $style = $style? " $style display:none;" : 'display:none;';
                 }
+            } else {
+                $aux = $cmd;
             }
         }
         return $str;
@@ -510,7 +513,7 @@ class MdPlusHelper
      * @param $attr
      * @return array
      */
-    private static function _assembleHtmlAttrs(string $id, string $class, string $style, $attr): array
+    private static function _assembleHtmlAttrs(string $id, string $class, string $style, $attr, string $aux): array
     {
         $out = '';
         $htmlAttrArray = [];
@@ -529,6 +532,10 @@ class MdPlusHelper
         if ($attr) {
             $out .= ' '.implode(' ', $attr);
             $htmlAttrArray = array_merge($htmlAttrArray, $attr);
+        }
+        if ($aux) {
+            $out .= " data-aux='$aux'";
+            $htmlAttrArray['aux'] = $aux;
         }
         return [$out, $htmlAttrArray];
     } // _assembleHtmlAttrs

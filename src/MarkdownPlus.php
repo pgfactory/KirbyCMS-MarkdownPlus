@@ -638,9 +638,9 @@ class MarkdownPlus extends MarkdownExtra
      * @param int $current
      * @return bool
      */
-    protected function identifyAccordion(string $line, array $lines, int $current): bool
+    protected function identifyAccordion(string $line): bool
     {
-        if (preg_match('/^<\d*>.+/', $line, $m)) {
+        if (preg_match('/^<\d*>\s.+/', $line, $m)) {
             return true;
         }
         return false;
@@ -1545,6 +1545,10 @@ EOT;
         // handle tag=skip:
         if ($attrs['tag'] === 'skip') {
             return '';
+            
+        // handle tag:
+        } elseif ($attrs['tag']) {
+            $elem = '<'.$attrs['tag'];
         }
 
         // handle id:

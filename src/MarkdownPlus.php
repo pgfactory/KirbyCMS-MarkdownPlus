@@ -1842,7 +1842,9 @@ EOT;
             if (str_contains($key, 'css')) {
                 $value = $this->handleSectionRefs($value);
             }
-            page()->$key()->value .= $value;
+            if (isset(page()->$key()->value)) {
+                page()->$key()->value .= $value;
+            }
             $str = $m[3];
         }
         return $str;

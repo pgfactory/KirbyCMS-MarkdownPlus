@@ -1284,6 +1284,9 @@ EOT;
         // lines that contain but a variable or macro (e.g. "<p>{{ lorem( help ) }}</p>") -> remove enclosing P-tags:
         $str = preg_replace('|<p> ({{ .*? }}) </p>|xms', "$1", $str);
 
+        // remove P from pattern "<p><span shielded>...</span shielded></p>" (i.e. output of macro on sep line):
+        $str = preg_replace('|<p>(<span shielded>.*?</span shielded>)</p>|ms', "$1", $str);
+
         // check for kirbytags, get them compiled:
         $str = $this->handleKirbyTags($str);
 

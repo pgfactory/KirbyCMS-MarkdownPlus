@@ -172,7 +172,7 @@ class MdPlusHelper
 
 
     /**
-     * Appends the svg source to end of body, returns an svg reference (<use...>)
+     * Appends the svg source to end of body, returns a svg reference (<use...>)
      * @param string $iconName
      * @param string $iconFile
      * @return string

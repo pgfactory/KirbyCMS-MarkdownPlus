@@ -1818,7 +1818,6 @@ EOT;
     {
         if (class_exists('PageFactory')) {
             return false;
-//            throw new Exception("Unable to execute macro '$macroName', PageFactory not installed.");
         }
         // insert commas between arguments:
         if (!str_contains($argStr, ',')) {

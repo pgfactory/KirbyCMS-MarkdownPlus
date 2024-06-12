@@ -4,6 +4,7 @@ namespace PgFactory\MarkdownPlus;
 use cebe\markdown\MarkdownExtra;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
+use PgFactory\PageFactory\Macros;
 use function PgFactory\PageFactory\explodeTrim;
 use function PgFactory\PageFactory\getFile;
 use function PgFactory\PageFactory\shieldStr;
@@ -1816,19 +1817,18 @@ EOT;
     private function processByMacro(string $macroName, string $argStr): mixed
     {
         if (class_exists('PageFactory')) {
-            throw new Exception("Unable to execute macro '$macroName', PageFactory not installed.");
+            return false;
+//            throw new Exception("Unable to execute macro '$macroName', PageFactory not installed.");
         }
         // insert commas between arguments:
         if (!str_contains($argStr, ',')) {
             $argStr = preg_replace('/(\s\w+:)/', ",$1", $argStr);
         }
-        $macroName = "PgFactory\\PageFactory\\$macroName";
-        if (function_exists($macroName)) {
-            $str = $macroName($argStr);
+        if (Macros::exists($macroName)) {
+            return Macros::execute($macroName, $argStr);
         } else {
-            $str = false;
+            return false;
         }
-        return $str;
     } // processByMacro
 
 

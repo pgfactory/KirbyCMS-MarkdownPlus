@@ -1789,7 +1789,7 @@ EOT;
             if (str_starts_with($kirbyTag, $pattern)) {
                 $args = trim(substr($kirbyTag, strlen($pattern)), ' )');
 
-                if (in_array($macro, ['link', 'file', 'image']) && !preg_match('#^(https?://|~|\.\.)#', $args)) {
+                if (in_array($macro, ['link', 'file', 'image']) && !preg_match('#^(https?://|~|\.\.)#', $args) && !str_starts_with($args, '<span immutable')) {
                     $args = str_contains($args, '/') ? "~/$args" : "~page/$args";
                 }
 

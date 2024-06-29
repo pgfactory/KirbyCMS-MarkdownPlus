@@ -1793,7 +1793,9 @@ EOT;
                         !preg_match('#^(https?://|~|\.\.)#', $args) &&
                         !str_starts_with($args, '<span immutable') &&
                         !str_contains($args, '@')) {
-                    $args = str_contains($args, '/') ? "~/$args" : "~page/$args";
+                    if (!preg_match('/type:\s*(tel|gsm|sms|geo|slack|twitter|facebook|instagram|tiktok)/', $args)) {
+                        $args = str_contains($args, '/') ? "~/$args" : "~page/$args";
+                    }
                 }
 
                 if ($macro === 'file') {

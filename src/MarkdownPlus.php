@@ -702,14 +702,15 @@ class MarkdownPlus extends MarkdownExtra
         }
 
         $out = '';
+        $summary = self::compileParagraph($block['summary']);
         $body = self::compile($block['content']);
         $out .= <<<EOT
 
 <details>
-  <summary>{$block['summary']}</summary>
+  <summary>$summary</summary>
   <div class="mdp-accordion-body">
 $body
-  </div>
+  </div><!-- /.mdp-accordion-body -->
 </details>
 
 EOT;
@@ -1437,7 +1438,7 @@ EOT;
                 }
 
             // catch lines containing but HTML, but ignore Accordion pattern '<\d*>':
-            } elseif (preg_match('|^<\D+>\s*$|', $line)) {
+            } elseif ((($line[0]??'') === '<') && !preg_match('|^<\d*>|', $line)) {
                 $lines[$i] = "<literal>$line</literal>";
             }
         }

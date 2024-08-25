@@ -1310,7 +1310,14 @@ EOT;
 
         $str = MdPlusHelper::unshieldStr($str);
 
-        $str = str_replace(['<literal>','</literal>'], '', $str);
+        // handle pattern '<literal>' in strings:
+        //  -> in cases like "{{ date('j. M Y') }} {: .red }" <literal may contain injected attributes
+        if (preg_match_all('|(<literal.*?>.*?</literal>)|', $str, $m)) {
+            foreach ($m[0] as $tag) {
+                $tag1 = str_replace('literal', 'div', $tag);
+                $str = str_replace($tag, $tag1, $str);
+            }
+        }
 
         // clean up shielded characters, e.g. '@#123;''@#123;' to '&#123;' :
         return preg_replace('/@#(\d+);/m', "&#$1;", $str);

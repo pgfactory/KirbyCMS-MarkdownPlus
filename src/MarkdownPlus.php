@@ -1595,12 +1595,8 @@ EOT;
         }
 
         // misc attrs:
-        if ($attrs['attr']??false) {
-            foreach ($attrs['attr'] as $k => $v) {
-                if (!str_contains($elem,"$k='$v'")) {
-                    $elem .= " $k='$v'";
-                }
-            }
+        if ($attrs['htmlAttrs']??false) {
+            $elem .= ' '.$attrs['htmlAttrs'];
         }
 
         return "$elem>$rest";

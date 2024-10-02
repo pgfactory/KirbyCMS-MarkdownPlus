@@ -1567,36 +1567,9 @@ EOT;
             $elem = '<'.$attrs['tag'];
         }
 
-        // handle id:
-        if ($value = $attrs['id']??false) {
-            if (preg_match("/\sid= ['\"] .*? ['\"]/x", $elem, $mm)) {
-                $elem = str_replace($mm[0], '', $elem);
-            }
-            $elem .= " id='$value'";
-        }
-
-        // handle class:
-        if ($value = $attrs['class']??false) {
-            if (str_contains($elem, 'class=')) {
-                $elem = preg_replace("/(class=['\"])/", "$1$value ", $elem);
-            } else {
-                $elem .= " class='$value'";
-            }
-        }
-
-        // handle style:
-        if ($value = $attrs['style']??false) {
-            $value = rtrim($value, '; ').'; ';
-            if (str_contains($elem, 'style=')) {
-                $elem = preg_replace("/(style=['\"])/", "$1$value ", $elem);
-            } else {
-                $elem .= " style='$value'";
-            }
-        }
-
-        // misc attrs:
+        // attributes:
         if ($attrs['htmlAttrs']??false) {
-            $elem .= ' '.$attrs['htmlAttrs'];
+            $elem .= $attrs['htmlAttrs'];
         }
 
         return "$elem>$rest";

@@ -245,6 +245,22 @@ class Permission
 
 
     /**
+     * @return mixed
+     */
+    public static function getLoggedInUser(): mixed
+    {
+        if (($user = kirby()->user()) !== null) {
+            return $user;
+        }
+        $session = kirby()->session();
+        if ($email = $session->get('pfy.accessCodeUser')) {
+            return kirby()->user($email);
+        }
+        return false;
+    } // getLoggedInUser
+
+
+    /**
      * Check if a given ip is in a network
      * @param  string $ip    IP to check in IPV4 format eg. 127.0.0.1
      * @param  string $range IP/CIDR netmask eg. 127.0.0.0/24, also 127.0.0.1 is accepted and /32 assumed

@@ -26,11 +26,38 @@
 
 
 /* === Tabulators ========= */
-.mdp-tabulator-wrapper > span {
-    display: inline-block;
-    line-height: 1.3em;
-    vertical-align: top;
+.mdp-tabulator-wrapper > div {
+  display: inline-block;
+  vertical-align: top;
+  &.tt1 {
+    width: var(--tt1-width, 6em);
+  }
+  &.tt2 {
+    width: var(--tt2-width, 0px);
+  }
+  &.tt3 {
+    width: var(--tt3-width, 0px);
+  }
+  &.tt4 {
+    width: var(--tt4-width, 0px);
+  }
+  &.tt5 {
+    width: var(--tt5-width, 0px);
+  }
+  &.tt6 {
+    width: var(--tt6-width, 0px);
+  }
+  &.tt-last {
+    width: calc(100% - var(--tt1-width, 6em)
+          - var(--tt2-width, 0px)
+          - var(--tt3-width, 0px)
+          - var(--tt4-width, 0px)
+          - var(--tt5-width, 0px)
+          - var(--tt6-width, 0px)
+    );
+  }
 }
+
 
 /* === Icons ============== */
 /*
@@ -55,6 +82,9 @@
   width: var(--mdp-icon-size, 1em);
   height: var(--mdp-icon-size, 1em);
   transform: translateY(0.12em);
+}
+a .mdp-icon {
+  margin-right: 0.2em;
 }
 .mdp-icon > * {
   position: absolute;

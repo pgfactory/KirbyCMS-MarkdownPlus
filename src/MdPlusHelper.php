@@ -6,6 +6,8 @@ use Kirby\Data\Yaml as Yaml;
 use Kirby\Data\Json as Json;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
+use PgFactory\PageFactory\PageFactory;
+use function PgFactory\PageFactory\indentLines;
 
 const MDPMD_CACHE_PATH =       'site/cache/markdownplus/';
 const MDPMD_MKDIR_MASK =       0700;
@@ -20,6 +22,7 @@ class MdPlusHelper
      * @var array
      */
     private static array $availableIcons = [];
+    private static array $processedSvgIcons = [];
 
 
     /**
@@ -130,24 +133,73 @@ class MdPlusHelper
 
     /**
      * Renders an icon specified by its name.
+     *   $iconName may be written as ':icon_name:'
+     *   $iconName may contain title as 'icon_name/title text...'
      * @param string $iconName
      * @return string
      * @throws Exception
      */
-    public static function renderIcon(string $iconName): string
+    public static function renderIcon(string $iconName, string $title = '', bool $throwError = false): string
     {
+        $iconName0 = $iconName;
+        if (preg_match('/^:(.*?):(.*)/', $iconName, $m)) {
+            $iconName = $m[1].$m[2];
+        }
+
+        if (str_contains($iconName, '/')) {
+            list($iconName, $title) = explode('/', $iconName, 2);
+        }
+
+        if ($title) {
+            $title = " title='$title'";
+        }
         $iconFile = self::$availableIcons[$iconName] ?? false;
         if (!$iconFile || !file_exists($iconFile)) {
-            throw new Exception("Error: icon '$iconName' not found.");
+            if ($throwError) {
+                throw new Exception("Error: icon '$iconName' not found.");
+            }
+            return $iconName0;
         }
 
         if (str_ends_with($iconFile, '.svg')) {
-            $icon = "<span class='mdp-icon'>".svg($iconFile).'</span>';
+            $icon = self::renderSvgIcon($iconName, $iconFile);
+            $icon = "<span class='mdp-icon'$title>$icon</span>";
         } else {
-            $icon = "<span class='mdp-icon'><img src='$iconFile' alt=''></span>";
+            $icon = "<span class='mdp-icon'$title><img src='$iconFile' alt=''></span>";
         }
         return $icon;
     } // renderIcon
+
+
+    /**
+     * Appends the svg source to end of body, returns a svg reference (<use...>)
+     * @param string $iconName
+     * @param string $iconFile
+     * @return string
+     * @throws Exception
+     */
+    private static function renderSvgIcon(string $iconName, string $iconFile): string
+    {
+        $iconId = "pfy-iconsrc-$iconName";
+        if (isset(self::$processedSvgIcons[$iconName])) {
+            $icon = self::$processedSvgIcons[$iconName];
+        } else {
+            $str = svg($iconFile);
+            $str = str_replace("\n", '', $str);
+            $str = preg_replace('|<\?xml.*?\?>|', '', $str); // remove svg prolog when embedded in HTML
+            if (!preg_match('|(<svg.*?>)(.*)</svg>|ms', $str, $m)) {
+                throw new Exception("Error in code of icon '$iconName'");
+            }
+            $svg = $m[1];
+            $icon = "$svg<use href='#$iconId' /></svg>";
+            $svg = '<svg style="display:none" aria-hidden="true" focusable="false"' .substr($svg,4);
+            $svgBody = $m[2];
+            $str = "$svg<symbol id='$iconId'>$svgBody</symbol></svg>";
+            PageFactory::$pg->addBodyEndInjections($str);
+            self::$processedSvgIcons[$iconName] = $icon;
+        }
+        return $icon;
+    } // renderSvgIcon
 
 
     /**
@@ -160,12 +212,13 @@ class MdPlusHelper
     public static function shieldStr(string $str, mixed $options = false): string
     {
         $ch1 = $options[0]??'';
+        $base64 = rtrim(base64_encode($str), '=');
         if ($ch1 === 'm') {
-            return '<'.MD_SHIELD.'>' . base64_encode($str) . '</'.MD_SHIELD.'>';
+            return '<'.MD_SHIELD.">$base64</".MD_SHIELD.'>';
         } elseif ($ch1 === 'i') {
-            return '<'.INLINE_SHIELD.'>' . base64_encode($str) . '</'.INLINE_SHIELD.'>';
+            return '<'.INLINE_SHIELD.">$base64</".INLINE_SHIELD.'>';
         } else {
-            return '<'.BLOCK_SHIELD.'>' . base64_encode($str) . '</'.BLOCK_SHIELD.'>';
+            return '<'.BLOCK_SHIELD.">$base64</".BLOCK_SHIELD.'>';
         }
     } // shieldStr
 
@@ -179,6 +232,10 @@ class MdPlusHelper
      */
     public static function unshieldStr(string $str, bool $unshieldLiteral = null): string
     {
+        if (!str_contains($str, '<')) {
+            return $str;
+        }
+
         if ($unshieldLiteral !== false) {
             $str = preg_replace('#(&lt;|<)(/?)('.INLINE_SHIELD.'|'.BLOCK_SHIELD.'|'.MD_SHIELD.')(&gt;|>)#', "<$2$3>", $str);
             if (preg_match_all('/<('.INLINE_SHIELD.'|'.BLOCK_SHIELD.')>(.*?)<\/('.INLINE_SHIELD.'|'.BLOCK_SHIELD.')>/m', $str, $m)) {
@@ -197,6 +254,32 @@ class MdPlusHelper
         }
         return $str;
     } // unshieldStr
+
+
+    public static function autoConvertLinks(string $str): string
+    {
+        $autoWrapUrls = (page()->autowrapurls()->value() === 'true') || kirby()->option('pgfactory.markdownplus.options.autoConvertLinks');
+        if (!$autoWrapUrls) {
+            return $str;
+        }
+        if (preg_match_all("/[\w.'-]{1,50} @ [\w.'-]{1,30} \. \w{1,10} /xms", $str, $m)) {
+            foreach ($m[0] as $i => $item) {
+                $url = $text = $item;
+                $url = str_replace('@', '&#64;', $url);
+                $url = "mailto:$url";
+                $item = self::shieldStr("<a href='$url'>$text</a>");
+                $str = str_replace($m[0][$i], $item, $str);
+            }
+        } elseif (preg_match_all("|https?:// ([\w.'/-]{1,50} \. \w{1,10} [\w./-]{1,50}) |xms", $str, $m)) {
+            foreach ($m[0] as $i => $item) {
+                $url = $item;
+                $url = str_replace('.', '&#46;', $url);
+                $item = self::shieldStr("<a href='$url' target='_blank'>$url</a>");
+                $str = str_replace($m[0][$i], $item, $str);
+            }
+        }
+        return $str;
+    } // autoConvertLinks
 
 
     /**
@@ -238,7 +321,7 @@ class MdPlusHelper
      */
     public static function parseInlineBlockArguments(string $str): array
     {
-        $tag = $id = $class = $style = $text = $lang = '';
+        $tag = $id = $class = $style = $text = $lang = $aux ='';
         $literal = $inline = 0;
         $attr = [];
 
@@ -301,11 +384,11 @@ class MdPlusHelper
                     }
                     break;
                 case '!':
-                    $str = self::_parseMetaCmds($str, $lang, $literal, $inline, $style, $tag);
+                    $str = self::_parseMetaCmds($str, $lang, $literal, $inline, $style, $tag, $aux);
                     break;
                 case '"':
                     if (($p = strpos($str, '"')) !== false) {
-                        $t = substr($str, 0, $p-1);
+                        $t = substr($str, 0, $p);
                         $str = substr($str, $p+1);
                         $text = $text ? "$text $t" : $t;
                     }
@@ -313,7 +396,7 @@ class MdPlusHelper
                     break;
                 case "'":
                     if (($p = strpos($str, '\'')) !== false) {
-                        $t = substr($str, 0, $p-1);
+                        $t = substr($str, 0, $p);
                         $str = substr($str, $p+1);
                         $text = $text ? "$text $t" : $t;
                     }
@@ -327,7 +410,7 @@ class MdPlusHelper
             $inline = null;
         }
         $style = trim($style);
-        list($htmlAttrs, $htmlAttrArray) = self::_assembleHtmlAttrs($id, $class, $style, $attr);
+        list($htmlAttrs, $htmlAttrArray) = self::_assembleHtmlAttrs($id, $class, $style, $attr, $aux);
 
         return [
             'tag' => $tag,
@@ -354,7 +437,7 @@ class MdPlusHelper
      * @param string $style
      * @param string $tag
      */
-    private static function _parseMetaCmds(string $str, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag): string
+    private static function _parseMetaCmds(string $str, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag, string &$aux): string
     {
         if (preg_match('/^([\w-]+) [=:]? (.*) /x', $str, $m)) {
             $cmd = strtolower($m[1]);
@@ -400,6 +483,10 @@ class MdPlusHelper
                 $style = $style? " $style display:none;" : 'display:none;';
 
             } elseif ($cmd === 'showtill') {
+                // if no time defined, round up to end of day:
+                if (!preg_match('/\d\d:\d\d/', $arg)) {
+                    $arg .= ' 23:59';
+                }
                 $t = strtotime($arg) - time();
                 if ($t < 0) {
                     $lang = 'none';
@@ -414,6 +501,8 @@ class MdPlusHelper
                     $tag = 'skip';
                     $style = $style? " $style display:none;" : 'display:none;';
                 }
+            } else {
+                $aux = $cmd;
             }
         }
         return $str;
@@ -428,7 +517,7 @@ class MdPlusHelper
      * @param $attr
      * @return array
      */
-    private static function _assembleHtmlAttrs(string $id, string $class, string $style, $attr): array
+    private static function _assembleHtmlAttrs(string $id, string $class, string $style, $attr, string $aux): array
     {
         $out = '';
         $htmlAttrArray = [];
@@ -447,6 +536,10 @@ class MdPlusHelper
         if ($attr) {
             $out .= ' '.implode(' ', $attr);
             $htmlAttrArray = array_merge($htmlAttrArray, $attr);
+        }
+        if ($aux) {
+            $out .= " data-aux='$aux'";
+            $htmlAttrArray['aux'] = $aux;
         }
         return [$out, $htmlAttrArray];
     } // _assembleHtmlAttrs

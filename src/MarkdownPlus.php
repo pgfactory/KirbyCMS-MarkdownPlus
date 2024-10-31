@@ -4,6 +4,10 @@ namespace PgFactory\MarkdownPlus;
 use cebe\markdown\MarkdownExtra;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
+use PgFactory\PageFactory\Macros;
+use function PgFactory\PageFactory\explodeTrim;
+use function PgFactory\PageFactory\getFile;
+use function PgFactory\PageFactory\shieldStr;
 
 include_once __DIR__ . '/MdPlusHelper.php';
 
@@ -16,10 +20,48 @@ include_once __DIR__ . '/MdPlusHelper.php';
 
  // HTML tags that must not have a closing tag:
 const MDPMD_SINGLETON_TAGS =   'img,input,br,hr,meta,embed,link,source,track,wbr,col,area';
-const DEFAULT_TABULATOR_WIDTH = '6em';
 const INLINE_ELEMENTS = "a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,map,object,'.
 'output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,";
   // 'skip' is a pseudo tag used by MarkdownPlus.
+ // the following KirbyTags are identified:
+const SUPPORTED_KIRBYTAGS = 'date|email|file|gist|image|link|tel|twitter|video';
+ // this is the regex pattern to catch KirbyTags:
+const SUPPORTED_KIRBY_TAGS_PATTERN = '\( ('.SUPPORTED_KIRBYTAGS.') :';
+ // the following KirbyTags are intercepted and processed by PageFactory:
+const KIRBYTAG_PATTERNS = [
+    'link' => '(link:',
+    'file' => '(file:',
+    'image' => '(image:',
+    'date' => '(date:',
+    'email' => '(email:'
+];
+const ABBREVIATIONS_FILE    = 'site/custom/variables/abbreviations.txt';
+const SMARTYPANTS_FILE    = 'site/custom/variables/smartypants.txt';
+
+const SMARTYPANTS = [
+    '/(?<!-)-&gt;/ms'  => '&rarr;',
+    '/(?<!=)=&gt;/ms'  => '&rArr;',
+    '/(?<!!)&lt;-/ms'  => '&larr;',
+    '/(?<!=)&lt;=/ms'  => '&lArr;',
+    '/(?<!\.)\.\.\.(?!\.)/ms'  => '&hellip;',
+    '/(?<!-|!)--(?!-|>)/ms'  => '&ndash;', // in particular: <!-- -->
+    '/(?<!-)---(?!-)/ms'  => '&mdash;',
+    '/(?<!&lt;)&lt;<(?!&lt;)/ms'  => '&#171;',      // <<
+    '/(?<!&lt;)&lt;&lt;(?!&lt;)/ms'  => '&#171;',   // <<
+    '/(?<!&gt;)>&gt;(?!&gt;)/ms'  => '&#187;',      // >>
+    '/(?<!&gt;)&gt;&gt;(?!&gt;)/ms'  => '&#187;',   // >>
+    '/\bEURO\b/ms'  => '&euro;',
+    //'/sS/ms'  => 'ß',
+    '|1/4|ms'  => '&frac14;',
+    '|1/2|ms'  => '&frac12;',
+    '|3/4|ms'  => '&frac34;',
+    '|0/00|ms'  => '&permil;',
+    '/(?<!,),,(?!,)/ms'  => '„',
+    "/(?<!')''(?!')/ms"  => '”',
+    "/(?<!`)``(?!`)/ms"  => '“',
+    "/(?<!~)~~(?!~)/ms"  => '≈',
+    '/\bINFINITY\b/ms'  => '∞',
+];
 
 
 class MarkdownPlus extends MarkdownExtra
@@ -36,6 +78,8 @@ class MarkdownPlus extends MarkdownExtra
     private string $sectionIdentifier;
     private bool $removeComments;
     public  static $lang;
+    private static array $abbr = [];
+    private static array $smartypants = [];
 
     /**
      */
@@ -53,7 +97,9 @@ class MarkdownPlus extends MarkdownExtra
 
         $lang = kirby()->language();
         self::$lang = $lang ? $lang->code() : '';
-    }
+
+        $this->loadAbbreviations();
+    } // __construct
 
 
     /**
@@ -187,6 +233,9 @@ class MarkdownPlus extends MarkdownExtra
                     $colspan++;
                     continue;
                 } elseif ($cell) {
+                    if ($cell[0] === ' ') {
+                        $cell = substr($cell,1);
+                    }
                     $cell = self::compile($cell, omitPWrapperTag: true);
                 }
                 $colspanAttr = '';
@@ -408,12 +457,8 @@ class MarkdownPlus extends MarkdownExtra
                 $content = self::compileParagraph($content, true);
                 $block['content'][0] = MdPlusHelper::shieldStr($content, 'inline');
 
-            } elseif (preg_match('/[^a-zA-Z0-9\s.,]/', $content)) {
-                // shield and md-compile after unshielding:
-                $block['content'][0] = MdPlusHelper::shieldStr($content, 'md');
-
             } else {
-                $block['content'][0] = $content;
+                $block['content'][0] = MdPlusHelper::shieldStr($content, 'md');
             }
         } else {
             $block['content'][0] = '';
@@ -512,7 +557,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     protected function identifyTabulator(string $line): bool
     {
-        if (preg_match('/(\s\s|\t) ([.\d]{1,3}\w{1,2})? >> [\s\t]/x', $line)) { // identify patterns like '{{ tab( 7em ) }}'
+        if (preg_match('/(\s\s|\t) ([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line)) { // identify patterns like '{{ tab( 7em ) }}'
             return true;
         }
         return false;
@@ -527,40 +572,31 @@ class MarkdownPlus extends MarkdownExtra
     {
         $block = [
             'tabulator',
-            'content' => [],
+            'content' => [[]],
             'widths' => [],
         ];
 
-        $last = $current;
-        $nEmptyLines = 0;
         // consume following lines containing >>
+        $p = 0;
         for($i = $current, $count = count($lines); $i <= $count-1; $i++) {
-            if (!preg_match('/\S/', $lines[$i])) {  // empty line
-                if ($nEmptyLines++ > 0) {
+            $line = $lines[$i];
+            if (preg_match_all('/([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line, $m)) {
+                $parts = preg_split('/[\s\t]* ([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line);
+                foreach ($parts as $n => $elem) {
+                    $block['content'][$p][$n] = $elem;
+                    $block['widths'][$p][$n] = $m[1][$n]??false;
+                }
+                $p++;
+            } else {
+                if (!$line) {
                     break;
                 }
-            } else {
-                $nEmptyLines = 0;
-            }
-            $line = $lines[$i];
-            if (preg_match_all('/([.\d]{1,3}\w{1,2})? >> [\s\t]/x', $line, $m)) {
-                $block['content'][] = $line;
-                foreach ($m[1] as $j => $width) {
-                    if ($width) {
-                        $block['widths'][$j] = $width;
-                    } elseif (!isset($block['widths'][$j])) {
-                        $block['widths'][$j] = DEFAULT_TABULATOR_WIDTH;
-                    }
-                }
-                $last = $i;
-            } elseif (empty($line)) {
-                continue;
-            } else {
-                break;
+                $block['content'][$p-1][$n] .= "\n".$line;
             }
         }
-        return [$block, $last];
+        return [$block, $i];
     } // consumeTabulator
+
 
     /**
      * @param array $block
@@ -571,60 +607,134 @@ class MarkdownPlus extends MarkdownExtra
     {
         $inx = self::$tabulatorInx++;
         $out = '';
-        foreach ($block['content'] as $l) {
-            $parts = preg_split('/[\s\t]* ([.\d]{1,3}\w{1,2})? >> [\s\t]/x', $l);
+        $style = '';
+        $widths = $block['widths']??[];
+        foreach ($block['content'] as $n => $parts) {
+            $n++;
+            $last = sizeof($parts) - 1;
             $line = '';
-            $addedWidths = 0; // px
-            $addedEmsWidths = 0; // em
-            foreach ($parts as $n => $elem) {
-                if ($w = ($block['widths'][$n])??false) {
-                    $style = " style='width:$w;'";
-                    $addedWidths += MdPlusHelper::convertToPx($w);
-                    $addedWidths += MdPlusHelper::convertToPx('1.2em');
-                    if (preg_match('/^([\d.]+)em$/', $w, $m)) {
-                        $addedEmsWidths += intval($m[1]);
-                    } else {
-                        // non-'em'-width detected -> can't use em-based width:
-                        $addedEmsWidths = -999999;
-                    }
-
-                } elseif ($n === 0) {
-                    $style = " style='width:6em;'";
-                    $addedWidths += 16;
-                    $addedEmsWidths += 1;
-
-                } else {
-                    if ($addedEmsWidths > 0) {
-                        // all widths defined as 'em', so we can use that value:
-                        $style = " style='max-width:calc(100% - {$addedEmsWidths}em);'";
-                    } else {
-                        // some widths defined as non-'em' -> use px-based estimate:
-                        $style = " style='max-width:calc(100% - {$addedWidths}px);'";
-                    }
-                }
+            foreach ($parts as $p => $elem) {
+                $i = $p + 1;
+                $lastClass = ($p === $last) ? ' tt-last' : '';
                 $elem = self::compileParagraph($elem);
-                $line .= "<span class='c".($n+1)."'$style>$elem</span>";
+                $line .= "<div class='tt$i$lastClass'>$elem</div>";
+                if ($w = ($widths[$n-1][$p]??false)) {
+                    $style .= "--tt$i-width: $w;";
+                }
             }
-            $out .= "<div class='mdp-tabulator-wrapper mdp-tabulator-wrapper-$inx'>$line</div>\n";
+            $out .= "<div class='mdp-tabulator-wrapper mdp-tabulator-wrapper-$n'>\n$line\n</div>\n";
         }
-        return $out;
+        if ($style) {
+            $style = shieldStr(" style='$style'");
+        }
+        return "<div class='mdp-tabulator-outer-wrapper mdp-tabulator-outer-wrapper-$inx'$style>\n$out\n</div><!-- /mdp-tabulator-outer-wrapper-$inx -->\n";
     } // renderTabulator
 
 
 
-    // === DefinitionList ==================
+    // === Accordion ==================
     /**
      * @param string $line
      * @param array $lines
      * @param int $current
      * @return bool
      */
+    protected function identifyAccordion(string $line): bool
+    {
+        if (preg_match('/^<\d*>\s.+/', $line, $m)) {
+            return true;
+        }
+        return false;
+    } // identifyAccordion
+
+    /**
+     * @param array $lines
+     * @param int $current
+     * @return array
+     */
+    protected function consumeAccordion(array $lines, int $current): array
+    {
+        // create block array
+        $block = [
+            'Accordion',
+            'content' => '',
+            'summary' => '',
+            'attrs' => '',
+            'accordionAttrs' => '',
+        ];
+
+        if (preg_match('/\{: (.*?) } \s* $/x', $lines[$current], $m)) {
+            $block['accordionAttrs'] = $m[1];
+            $lines[$current] = str_replace($m[0], '', $lines[$current]);
+        }
+
+        if (!preg_match('/^(<\d*>) \s* (.*)/x', $lines[$current], $m)) {
+            throw new Exception("Syntax error in line $current: '{$lines[$current]}'");
+        }
+        $marker = $m[1];
+        $block['summary'] = $m[2];
+        $endPattern = "|^$marker\s*$|";
+
+        // consume all lines until $marker, e.g. <>
+        for($i = $current+1, $count = count($lines)-1; $i < $count; $i++) {
+            $line = $lines[$i];
+            if (!preg_match($endPattern, $line)) {
+                $block['content'] .= "$line\n";
+            } else {
+                break;
+            }
+        }
+        return [$block, $i];
+    } // consumeAccordion
+
+    /**
+     * @param array $block
+     * @return string
+     * @throws Exception
+     */
+    protected function renderAccordion(array $block): string
+    {
+        if ($accordionAttrs = $block['accordionAttrs']) {
+            $attrs = MdPlusHelper::parseInlineBlockArguments('.mdp-accordion '.$accordionAttrs);
+            $attrsStr = $attrs['htmlAttrs'];
+        } else {
+            $attrsStr = ' class="mdp-accordion"';
+        }
+
+        $out = '';
+        $summary = self::compileParagraph($block['summary']);
+        $body = self::compile($block['content']);
+        $out .= <<<EOT
+
+<details>
+  <summary>$summary</summary>
+  <div class="mdp-accordion-body">
+$body
+  </div><!-- /.mdp-accordion-body -->
+</details>
+
+EOT;
+
+        $out = <<<EOT
+
+<div $attrsStr>
+$out</div><!-- /accordion -->
+
+
+EOT;
+        return $out;
+    } // renderAccordion
+
+
     protected function identifyDefinitionList(string $line, array $lines, int $current): bool
     {
         // if next line starts with ': ', it's a dl:
-        if (isset($lines[$current+1]) && strncmp($lines[$current+1]??'', ': ', 2) === 0) {
+        if (!($line1 = ($lines[$current+1]??''))) {
+            return false;
+        }
+        if (str_starts_with($line1, ': ')) {
             return true;
-        } elseif (preg_match('/^\{:.*?}$/', $line) && strncmp($lines[$current+2]??'', ': ', 2) === 0) {
+        } elseif (preg_match('/^\{:.*?}$/', $line) && str_starts_with($lines[$current+2]??'', ': ')) {
             return true;
         }
         return false;
@@ -651,7 +761,7 @@ class MarkdownPlus extends MarkdownExtra
 
         // consume all lines until 2 empty line
         $nEmptyLines = 0;
-        $dt = -1;
+        $elemInx = -1;
         for($i = $current, $count = count($lines); $i < $count-1; $i++) {
             if (!$lines[$i]) {
                 if ($nEmptyLines++ < 1) {
@@ -659,13 +769,13 @@ class MarkdownPlus extends MarkdownExtra
                 }
                 break;
             }
-            if (($lines[$i][0] !== ':') && (($lines[$i+1][0]??' ') === ':')) {
-                $dt++;
-                $block['content'][$dt]['dt'] = $lines[$i++];
-                $block['content'][$dt]['dd'] = substr($lines[$i],1);
-                while (($lines[$i+1][0]??' ') === ':') {
+            if (!str_starts_with($lines[$i], ':') && str_starts_with($lines[$i+1], ':')) {
+                $elemInx++;
+                $block['content'][$elemInx]['dt'] = $lines[$i++];
+                $block['content'][$elemInx]['dd'] = substr($lines[$i],1);
+                while (str_starts_with($lines[$i+1]??'', ':')) {
                     $i++;
-                    $block['content'][$dt]['dd'] .= "\n".substr($lines[$i],1);
+                    $block['content'][$elemInx]['dd'] .= "\n".substr($lines[$i],1);
                 }
                 $nEmptyLines = 0;
             } else {
@@ -1149,6 +1259,8 @@ EOT;
 
         $str = $this->handleFrontmatter($str);
 
+        $str = $this->handleAbbreviations($str);
+
         $str = $this->handleShieldedCharacters($str);
 
         $str = $this->handleIncludes($str);
@@ -1174,6 +1286,9 @@ EOT;
         // lines that contain but a variable or macro (e.g. "<p>{{ lorem( help ) }}</p>") -> remove enclosing P-tags:
         $str = preg_replace('|<p> ({{ .*? }}) </p>|xms', "$1", $str);
 
+        // remove P from pattern "<p><span shielded>...</span shielded></p>" (i.e. output of macro on sep line):
+        $str = preg_replace('|<p>(<span shielded>.*?</span shielded>)</p>|ms', "$1", $str);
+
         // check for kirbytags, get them compiled:
         $str = $this->handleKirbyTags($str);
 
@@ -1191,8 +1306,21 @@ EOT;
 
         $str = $this->catchAndInjectTagAttributes($str); // ... {: .cls}
 
+        $str = MdPlusHelper::autoConvertLinks($str);
+
         $str = MdPlusHelper::unshieldStr($str);
 
+        // handle pattern '<literal>' in strings:
+        //  -> in cases like "{{ date('j. M Y') }} {: .red }" <literal may contain injected attributes
+        if (preg_match_all('|(<literal(.*?)>.*?</literal>)|', $str, $m)) {
+            foreach ($m[0] as $i => $tag) {
+                if ($m[2][$i]) {
+                    // case literal contains attributes:
+                    $tag1 = str_replace('literal', 'div', $tag);
+                    $str = str_replace($tag, $tag1, $str);
+                }
+            }
+        }
         $str = str_replace(['<literal>','</literal>'], '', $str);
 
         // clean up shielded characters, e.g. '@#123;''@#123;' to '&#123;' :
@@ -1211,30 +1339,24 @@ EOT;
         if (!$this->enableSmartypants) {
             return $str;
         }
-        $smartypants =    [
-                '/(?<!-)-&gt;/ms'  => '&rarr;',
-                '/(?<!=)=&gt;/ms'  => '&rArr;',
-                '/(?<!!)&lt;-/ms'  => '&larr;',
-                '/(?<!=)&lt;=/ms'  => '&lArr;',
-                '/(?<!\.)\.\.\.(?!\.)/ms'  => '&hellip;',
-                '/(?<!-|!)--(?!-|>)/ms'  => '&ndash;', // in particular: <!-- -->
-                '/(?<!-)---(?!-)/ms'  => '&mdash;',
-                '/(?<!&lt;)&lt;<(?!&lt;)/ms'  => '&#171;',      // <<
-                '/(?<!&lt;)&lt;&lt;(?!&lt;)/ms'  => '&#171;',   // <<
-                '/(?<!&gt;)>&gt;(?!&gt;)/ms'  => '&#187;',      // >>
-                '/(?<!&gt;)&gt;&gt;(?!&gt;)/ms'  => '&#187;',   // >>
-                '/\bEURO\b/ms'  => '&euro;',
-                //'/sS/ms'  => 'ß',
-                '|1/4|ms'  => '&frac14;',
-                '|1/2|ms'  => '&frac12;',
-                '|3/4|ms'  => '&frac34;',
-                '|0/00|ms'  => '&permil;',
-                '/(?<!,),,(?!,)/ms'  => '„',
-                "/(?<!')''(?!')/ms"  => '”',
-                "/(?<!`)``(?!`)/ms"  => '“',
-                "/(?<!~)~~(?!~)/ms"  => '≈',
-                '/\bINFINITY\b/ms'  => '∞',
-        ];
+
+        // check for custom smartypants definitons:
+        if (self::$smartypants) {
+            $smartypants = self::$smartypants;
+
+        } else {
+            if (file_exists(SMARTYPANTS_FILE)) {
+                $smartypants = [];
+                $lines = explodeTrim("\n", getFile(SMARTYPANTS_FILE, 'z,h'), true);
+                foreach ($lines as $line) {
+                    list($key, $value) = explode(': ', $line);
+                    $smartypants[$key] = $value;
+                }
+                self::$smartypants = $smartypants;
+            } else {
+                $smartypants = SMARTYPANTS;
+            }
+        }
 
         $out = '';
         list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<tt>', '</tt>');
@@ -1325,7 +1447,9 @@ EOT;
                 if (($lines[$i-1]??false) && !preg_match('/^\d+!?\./', $lines[$i-1], $m)) {
                     $lines[$i-1] .= "\n";
                 }
-            } elseif (($line[0] === '<') && ($line[strlen($line)-1] === '>')) {
+
+            // catch lines containing but HTML, but ignore Accordion pattern '<\d*>':
+            } elseif ((($line[0]??'') === '<') && !preg_match('|^<\d*>|', $line)) {
                 $lines[$i] = "<literal>$line</literal>";
             }
         }
@@ -1344,62 +1468,71 @@ EOT;
             return $str;
         }
 
-
-        // special case: string starts with attrib-def, i.e. no surrounding tags:
-        if (preg_match('|^\s*{:(.*?)}\s*(.*)|', $str, $m)) {
-            $attrs = MdPlusHelper::parseInlineBlockArguments($m[1]);
-            $attrsStr = $attrs['htmlAttrs'];
-            if ($this->isParagraphContext) {
-                $str = "<span$attrsStr>$m[2]</span>";
-            } else {
-                $str = "<div$attrsStr>$m[2]</div>";
+        if (!str_contains($str, "\n")) {
+            // one line only:
+            $attrs = [];
+            $origPattern = false;
+            if (preg_match('/\{:(.*?)}/', $str, $m)) {
+                $attrs = MdPlusHelper::parseInlineBlockArguments($m[1]);
+                $origPattern = $m[0];
             }
-            return $str;
+            $tag = $attrs['tag'] ?: $attrs['text'];
 
-        // case string contains no leading HTML tag -> wrap it:
-        } elseif (!preg_match('/(?<!\\\)<\w+/', $str)) {
-            if ($this->isParagraphContext) {
-                $str = "<span>$str</span>";
-            } else {
-                $str = "<div>$str</div>";
+            if (preg_match('|^\s*{:(.*?)}\s*(.*)|', $str, $m)) {
+                $attrsStr = $attrs['htmlAttrs'];
+                if (!$tag) {
+                    $tag = $this->isParagraphContext ? 'span' : 'div';
+                }
+                $str = "<$tag$attrsStr>$m[2]</$tag>";
+
+                // case string contains no leading HTML tag -> wrap it:
+            } elseif (!preg_match('/<\w+/', $str)) {
+                if (!$tag) {
+                    $tag = $this->isParagraphContext ? 'span' : 'div';
+                }
+                $str = "<$tag{$attrs['htmlAttrs']}>$str</$tag>";
             }
-        }
+            $str = str_replace($origPattern, '', $str);
 
-        // run through HTML line by line:
-        $lines = explode("\n", $str);
-        $attrDescr = false;
-        $nLines = sizeof($lines);
-        for ($i=0; $i<$nLines; $i++) {
-            $line = &$lines[$i];
-            
-            // case attribs found and not consumed yet -> apply to following tag:
-            if ($attrDescr) {
+        } else {
+            // multiple lines:
+            $lines = explode("\n", $str);
+            $attrDescr = false;
+            $nLines = sizeof($lines);
+            for ($i=0; $i<$nLines; $i++) {
+                $line = &$lines[$i];
+
+                // case attribs found and not consumed yet -> apply to following tag:
+                if ($attrDescr) {
+                    if (preg_match('/(\s*)(<.*?>)/', $line, $mm)) {
+                        $line = $mm[1].$this->applyAttributes($line, $attrDescr, $mm[2]);
+                    }
+                    $attrDescr = false;
+                    continue;
+                }
+
+                // line with nothing but attr descriptor:
+                if (preg_match('|^<p> \s* {:(.*?)} \s* </p> $|x', $line, $m)) {
+                    $attrDescr = $m[1];
+                    unset($lines[$i]);
+                    continue;
+                }
+
+                if (!preg_match('|(.*) {:(.*?)} (.*)|x', $line, $m)) {
+                    continue;
+                }
+                $attrDescr = $m[2];
+                $line = $m[1].$m[3];
                 if (preg_match('/(\s*)(<.*?>)/', $line, $mm)) {
                     $line = $mm[1].$this->applyAttributes($line, $attrDescr, $mm[2]);
+                    $attrDescr = false;
                 }
-                $attrDescr = false;
-                continue;
-            }
 
-            // line with nothing but attr descriptor:
-            if (preg_match('|^<p> \s* {:(.*?)} \s* </p> $|x', $line, $m)) {
-                $attrDescr = $m[1];
-                unset($lines[$i]);
-                continue;
             }
-
-            if (!preg_match('|(.*) {:(.*?)} (.*)|x', $line, $m)) {
-                continue;
-            }
-            $attrDescr = $m[2];
-            $line = $m[1].$m[3];
-            if (preg_match('/(\s*)(<.*?>)/', $line, $mm)) {
-                $line = $mm[1].$this->applyAttributes($line, $attrDescr, $mm[2]);
-                $attrDescr = false;
-            }
+            $str = implode("\n", $lines);
 
         }
-        return implode("\n", $lines);
+        return $str;
     } // catchAndInjectTagAttributes
 
 
@@ -1428,42 +1561,15 @@ EOT;
         // handle tag=skip:
         if ($attrs['tag'] === 'skip') {
             return '';
+            
+        // handle tag:
+        } elseif ($attrs['tag']) {
+            $elem = '<'.$attrs['tag'];
         }
 
-        // handle id:
-        if ($value = $attrs['id']??false) {
-            if (preg_match("/\sid= ['\"] .*? ['\"]/x", $elem, $mm)) {
-                $elem = str_replace($mm[0], '', $elem);
-            }
-            $elem .= " id='$value'";
-        }
-
-        // handle class:
-        if ($value = $attrs['class']??false) {
-            if (str_contains($elem, 'class=')) {
-                $elem = preg_replace("/(class=['\"])/", "$1$value ", $elem);
-            } else {
-                $elem .= " class='$value'";
-            }
-        }
-
-        // handle style:
-        if ($value = $attrs['style']??false) {
-            $value = rtrim($value, '; ').'; ';
-            if (str_contains($elem, 'style=')) {
-                $elem = preg_replace("/(style=['\"])/", "$1$value ", $elem);
-            } else {
-                $elem .= " style='$value'";
-            }
-        }
-
-        // misc attrs:
-        if ($attrs['attr']??false) {
-            foreach ($attrs['attr'] as $k => $v) {
-                if (!str_contains($elem,"$k='$v'")) {
-                    $elem .= " $k='$v'";
-                }
-            }
+        // attributes:
+        if ($attrs['htmlAttrs']??false) {
+            $elem .= $attrs['htmlAttrs'];
         }
 
         return "$elem>$rest";
@@ -1477,7 +1583,8 @@ EOT;
      */
     private function handleLineBreaks(string $str): string
     {
-        return preg_replace("/(\\\\\n|\s(?<!\\\)BR\s)/m", "<br>\n", $str);
+        $str = str_replace([' BR ',"\nBR ","\nBR\n"], ['<br>', "\n<br> ", "\n<br>\n"], $str);
+        return $str;
     } // handleLineBreaks
 
 
@@ -1639,37 +1746,51 @@ EOT;
      */
     private function handleKirbyTags(string $str): string
     {
-        if (preg_match_all('/( \( (date|email|file|gist|image|link|tel|twitter|video) : .*? \) )/xms', $str, $m)) {
-            foreach ($m[1] as $i => $value) {
-                // check whether it's part of a macro call, skip if so:
-                $pat = '\{\{\s*[\w-]+'.str_replace('|', '\\|', preg_quote($value));
-                if (preg_match("|$pat|", $str)) {
-                    continue;
-                }
-
-                $value = strip_tags(str_replace("\n", ' ', $value));
-                $res = false;
-
-                // intercept '(link:' and process by link() macro:
-                if (preg_match('/^ \(link: \s* ["\']? ([^\s"\']+) ["\']? (.*) \) /x', $value, $mm)) {
-                    $args = "url:'$mm[1]' $mm[2]";
-                    $res = $this->processByMacro('link', $args);
-
-                // intercept '(image:' and process by img() macro:
-                } elseif (preg_match('/^ \(image: \s* ["\']? ([^\s"\']+) ["\']? (.*) \) /x', $value, $mm)) {
-                    $args = "src:'$mm[1]' $mm[2]";
-                    $res = $this->processByMacro('img', $args);
-
-                }
-                if ($res === false) {
-                    // (file: ~/assets/test.pdf text: Download File)
-                    $res = kirby()->kirbytags($value);
-                }
-                $str = str_replace($m[0][$i], $res, $str);
-            }
+        if (!preg_match('/'.SUPPORTED_KIRBY_TAGS_PATTERN.'.* \)/xms', $str)) {
+            return $str;
+        }
+        $rest = $str;
+        $str = '';
+        while (preg_match('/(?<!\\\)'.SUPPORTED_KIRBY_TAGS_PATTERN.'/xms', $rest, $m, PREG_OFFSET_CAPTURE)) {
+            $p1 = $m[0][1];
+            list ($p1, $p2) = MdPlusHelper::strPosMatching($rest, $p1, '(', ')');
+            $str = substr($rest, 0, $p1);
+            $kirbyTag = substr($rest, $p1, $p2-$p1+1);
+            $rest = substr($rest, $p2+1);
+            $res = $this->processKirbyTag($kirbyTag);
+            $str .= "$res$rest";
+            $rest = $str;
         }
         return $str;
     } // handleKirbyTags
+
+
+    public function processKirbyTag($kirbyTag) {
+        foreach (KIRBYTAG_PATTERNS as $macro => $pattern) {
+            if (str_starts_with($kirbyTag, $pattern)) {
+                $args = trim(substr($kirbyTag, strlen($pattern)), ' )');
+
+                if (in_array($macro, ['link', 'file', 'image']) &&
+                        !preg_match('#^(https?://|~|\.\.)#', $args) &&
+                        !str_starts_with($args, '<span immutable') &&
+                        !str_contains($args, '@')) {
+                    if (!preg_match('/type:\s*(tel|gsm|sms|geo|slack|twitter|facebook|instagram|tiktok)/', $args)) {
+                        $args = str_contains($args, '/') ? "~/$args" : "~page/$args";
+                    }
+                }
+
+                if ($macro === 'file') {
+                    $args .= ', download:true';
+                } elseif ($macro === 'email') {
+                    $args .= ', type:mail';
+                }
+
+                $res = $this->processByMacro($macro === 'date' ? '_date' : ($macro === 'image' ? 'img' : 'link'), $args);
+                return $res;
+            }
+        }
+        return kirbytags($kirbyTag);
+    } // processKirbyTag
 
 
     /**
@@ -1682,19 +1803,17 @@ EOT;
     private function processByMacro(string $macroName, string $argStr): mixed
     {
         if (class_exists('PageFactory')) {
-            throw new Exception("Unable to execute macro '$macroName', PageFactory not installed.");
+            return false;
         }
         // insert commas between arguments:
         if (!str_contains($argStr, ',')) {
             $argStr = preg_replace('/(\s\w+:)/', ",$1", $argStr);
         }
-        $macroName = "PgFactory\\PageFactory\\$macroName";
-        if (function_exists($macroName)) {
-            $str = $macroName($argStr);
+        if (Macros::exists($macroName)) {
+            return Macros::execute($macroName, $argStr);
         } else {
-            $str = false;
+            return false;
         }
-        return $str;
     } // processByMacro
 
 
@@ -1711,11 +1830,62 @@ EOT;
             if (str_contains($key, 'css')) {
                 $value = $this->handleSectionRefs($value);
             }
-            page()->$key()->value .= $value;
+            if (isset(page()->$key()->value)) {
+                page()->$key()->value .= $value;
+            }
             $str = $m[3];
         }
         return $str;
     } // handleFrontmatter
+
+
+    /**
+     * Tries to import abbreviation definitions from file 'site/custom/variables/abbreviations.txt'
+     * @return void
+     */
+    private function loadAbbreviations()
+    {
+        if (file_exists(ABBREVIATIONS_FILE)) {
+            $lines = explode("\n", getFile(ABBREVIATIONS_FILE));
+            foreach ($lines as $line) {
+                if (!$line) {
+                    continue;
+                }
+                list($key, $value) = explodeTrim(':', $line);
+                self::$abbr[$key] = $value;
+            }
+        }
+    } // loadAbbreviations
+
+
+    /**
+     * First, looks for abbreviation definitions in markdown.
+     * Second, replaces all instances where content matches one the abbreviations.
+     * @param string $str
+     * @return string
+     */
+    private function handleAbbreviations(string $str): string
+    {
+        while (preg_match('/\*\[(.+?)]:\s*(.*?)\n/xms', $str, $m)) {
+            $key = $m[1];
+            $value = $m[2];
+            self::$abbr[$key] = $value;
+
+            $str = str_replace($m[0], '', $str);
+        }
+
+        if (self::$abbr) {
+            // for all instances, warp them into <abbr>:
+            foreach (self::$abbr as $key => $value) {
+                if (str_contains($str, $key)) {
+                    $value = shieldStr("<abbr class='pfy-tippy' title='$value'>$key</abbr>", 'inline');
+                    $str = preg_replace("/\b$key\b/m", $value, $str);
+                }
+            }
+        }
+
+        return $str;
+    } // handleAbbreviations
 
 
     /**

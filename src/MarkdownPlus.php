@@ -557,7 +557,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     protected function identifyTabulator(string $line): bool
     {
-        if (preg_match('/(\s\s|\t) ([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line)) { // identify patterns like '{{ tab( 7em ) }}'
+        if (preg_match('/(\s\s|\t) ([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line)) { // identify patterns like '  >> '
             return true;
         }
         return false;
@@ -1448,8 +1448,8 @@ EOT;
                     $lines[$i-1] .= "\n";
                 }
 
-            // catch lines containing but HTML, but ignore Accordion pattern '<\d*>':
-            } elseif ((($line[0]??'') === '<') && !preg_match('|^<\d*>|', $line)) {
+            // catch lines containing but HTML, but ignore Accordion patterns '<\d*> and <span shielded>':
+            } elseif ((($line[0]??'') === '<') && !preg_match('/^(<\d*>|<span shielded)/', $line)) {
                 $lines[$i] = "<literal>$line</literal>";
             }
         }

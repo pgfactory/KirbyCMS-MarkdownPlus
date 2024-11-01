@@ -9,6 +9,7 @@
 composer.lock
 vendor/
 
+
 # ignore everything that starts with '#' (or '.#', the hidden variant):
 /**/[#]*
 /**/.[#]*

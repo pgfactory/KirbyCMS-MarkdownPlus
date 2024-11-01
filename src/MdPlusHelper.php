@@ -256,6 +256,10 @@ class MdPlusHelper
     } // unshieldStr
 
 
+    /**
+     * @param string $str
+     * @return string
+     */
     public static function autoConvertLinks(string $str): string
     {
         $autoWrapUrls = (page()->autowrapurls()->value() === 'true') || kirby()->option('pgfactory.markdownplus.options.autoConvertLinks');
@@ -321,7 +325,7 @@ class MdPlusHelper
      */
     public static function parseInlineBlockArguments(string $str): array
     {
-        $tag = $id = $class = $style = $text = $lang = $aux ='';
+        $tag = $id = $class = $style = $text = $lang = $aux = '';
         $literal = $inline = 0;
         $attr = [];
 
@@ -384,7 +388,7 @@ class MdPlusHelper
                     }
                     break;
                 case '!':
-                    $str = self::_parseMetaCmds($str, $lang, $literal, $inline, $style, $tag, $aux);
+                    $str = self::_parseMetaCmds($str, $lang, $literal, $inline, $style, $tag, $aux, $text);
                     break;
                 case '"':
                     if (($p = strpos($str, '"')) !== false) {
@@ -437,7 +441,7 @@ class MdPlusHelper
      * @param string $style
      * @param string $tag
      */
-    private static function _parseMetaCmds(string $str, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag, string &$aux): string
+    private static function _parseMetaCmds(string $str, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag, string &$aux, string &$text): string
     {
         if (preg_match('/^([\w-]+) [=:]? (.*) /x', $str, $m)) {
             $cmd = strtolower($m[1]);
@@ -501,12 +505,73 @@ class MdPlusHelper
                     $tag = 'skip';
                     $style = $style? " $style display:none;" : 'display:none;';
                 }
+            } elseif ($cmd === 'help') {
+                $text = self::renderMetaCmdsHelp();
             } else {
                 $aux = $cmd;
             }
         }
         return $str;
     } // _parseMetaCmds
+
+
+    /**
+     * @return string
+     */
+    private static function renderMetaCmdsHelp(): string
+    {
+        return <<<EOT
+@@@@@@ .pfy-help.pfy-encapsulated
+## Help on Attribute Injection
+BR 
+|===
+|>| **Basic Arguments**
+|---
+| ``<tag``      | -> tag applied to the block, e.g. ``<aside``
+|---
+| ``"xyz"`` or  ``'xyz'``     | -> content that will be injected into the block
+|---
+| ``.my-id``      | -> ID applied to the block
+|---
+| ``.my-class``      | -> class applied to the block
+|---
+| ``css-attribute:value``      | -> style applied to the block, e.g. ``color:red``
+|---
+| ``html-attribute=value``      | -> attribute applied to the block, e.g. ``aria-hidden=true``
+|---
+|>| **Meta Commands**
+|---
+| ``!off``          | -> hides the block (with ``style='display:none'``)
+|---
+| ``!lang=xy``      | -> omits the block unless given language is active
+|---
+| ``!inline``     | -> compiles the block as inline-markdown (aka not block level)
+|---
+| ``!literal``     | -> renders text as stated (i.e. included in HTML output as is)
+|---
+| ``!showfrom=ISO-Timestamp``     |  -> omits the block until time is reached
+|---
+| ``!showtill=ISO-Timestamp``     |  -> omits the block after time has passed 
+|---
+| ``!visible={criteria}``     |  -> omits the block if admission criteria not met, e.g. ``!visible=loggedin`` 
+|---
+| ``!user={username}``     |  -> omits the block if admission criteria not met, e.g. ``!user=alice`` 
+|---
+| ``!role={user-role}``     |  -> omits the block if admission criteria not met, e.g. ``!role=staff`` 
+|===
+
+BR *ISO-time*: `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SS` (e.g. ``2023-01-06T14:23``)
+ {{ vgap }}
+ 
+### Example
+
+    @@@ <aside #my-id.my-class aria-hidden=true !showfrom=2025-01-01 !visible=loggedin
+    xy
+    @@@
+
+@@@@@@
+EOT;
+    } // renderMetaCmdsHelp
 
 
     /**

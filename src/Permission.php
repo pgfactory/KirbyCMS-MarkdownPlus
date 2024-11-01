@@ -55,9 +55,9 @@ class Permission
 
         $name = $role = $email = false;
         if (is_object($user)) {
-            $name = strtolower($credentials['name']??'');
-            $email = strtolower($credentials['email']??'');
-            $role = strtolower($user->role()->name());
+            $name  = strtolower($user->name());
+            $email = strtolower($user->email());
+            $role  = strtolower($user->role()->name());
         }
         $loggedIn = (bool)$user;
         $admission = false;

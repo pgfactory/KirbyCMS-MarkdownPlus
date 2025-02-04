@@ -709,6 +709,12 @@ class MarkdownPlus extends MarkdownExtra
                 }
             }
         }
+        // remove empty accordion elements:
+        for ($p=0; $p < sizeof($block['accordion']); $p++) {
+            if (!trim($block['accordion'][$p]['summary'])) {
+                unset($block['accordion'][$p]);
+            }
+        }
         return [$block, $i];
     } // consumeAccordion
 

@@ -224,6 +224,10 @@ class Permission
      */
     public static function isLocalhost(): bool
     {
+        // if on localhost: allow to override with '?localhost=false'
+        if (($_GET['localhost']??false) === 'false') {
+            return false;
+        }
         $ip = $_SERVER['SERVER_ADDR'];
         return ($ip === '::1' || $ip === '127.0.0.1' || str_starts_with($ip, '192.168.'));
     } // isLocalhost

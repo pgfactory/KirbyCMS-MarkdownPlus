@@ -72,7 +72,7 @@ class MarkdownPlus extends MarkdownExtra
     private static int $asciiTableInx   = 1;
     private static int $imageInx        = 0;
     private static int $tabulatorInx    = 1;
-    private static int $accordionInx    = 0;
+    private static int $accordionInx    = 1;
 
     private string $divblockChars;
     private bool $compileCodeBlocks;
@@ -671,7 +671,6 @@ class MarkdownPlus extends MarkdownExtra
             ],
         ];
         $blockInx = 0;
-        self::$accordionInx++;
 
         if (preg_match('/\{: (.*?) } \s* $/x', $lines[$current], $m)) {
             $block['accordion'][$blockInx]['accordionAttrs'] = $m[1];
@@ -731,16 +730,16 @@ class MarkdownPlus extends MarkdownExtra
 
         $mutex = (sizeof($blocks['accordion']) > 1);
         $wrapperClass = $mutex ? ' mdp-accordion-auto-close' : '';
+        $n = self::$accordionInx++;
 
         foreach ($blocks['accordion'] as $block) {
-            if ($accordionAttrs = $block['accordionAttrs']) {
+                if ($accordionAttrs = $block['accordionAttrs']) {
                 $attrs = MdPlusHelper::parseInlineBlockArguments('.mdp-accordion ' . $accordionAttrs);
                 $attrsStr = $attrs['htmlAttrs'];
             } else {
-                $attrsStr = ' class="mdp-accordion"';
+                $attrsStr = " class='mdp-accordion mdp-accordion-$n'";
             }
             if ($mutex) {
-                $n = self::$accordionInx;
                 $attrsStr .= " name='mdp-accordion-$n'";
             }
 

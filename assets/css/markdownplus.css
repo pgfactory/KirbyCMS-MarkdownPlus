@@ -3,34 +3,42 @@
 */
 
 /* === Accordion ============== */
+.mdp-accordion details,
 details.mdp-accordion {
   outline: var(--pfy-accordion-details-border);
   outline-offset: -1px;
   overflow: clip;
 }
+.mdp-accordion details::details-content,
 details.mdp-accordion::details-content {
   padding: 0 1em;
 }
+.mdp-accordion details[open],
 details.mdp-accordion[open] {
   background: var(--pfy-accordion-details-bg);
 }
-details.mdp-accordion[open] summary:before {
+.mdp-accordion details[open] > summary:before,
+details.mdp-accordion[open] > summary:before {
   transform: rotate(90deg);
 }
-details.mdp-accordion summary {
+.mdp-accordion details > summary,
+details.mdp-accordion > summary {
   background: var(--pfy-accordion-summary-bg, var(--pfy-accordion-details-bg));
   border-bottom: var(--pfy-accordion-details-border);
   padding: 0.4em 0.2em;
   cursor: pointer;
 }
-details.mdp-accordion summary > span {
+.mdp-accordion details > summary > span,
+details.mdp-accordion > summary > span {
   display: block;
   padding-left: 1.1em;
 }
-details.mdp-accordion summary::marker {
+.mdp-accordion details > summary::marker,
+details.mdp-accordion > summary::marker {
   content: "";
 }
-details.mdp-accordion summary:before {
+.mdp-accordion details > summary:before,
+details.mdp-accordion > summary:before {
   content: "▷";
   float: left;
   line-height: 1em;
@@ -39,10 +47,12 @@ details.mdp-accordion summary:before {
   transition: transform 0.2s;
 }
 /* marker right */
-details.mdp-accordion.right summary:before {
+.mdp-accordion details.right > summary:before,
+details.mdp-accordion.right > summary:before {
   float: right;
 }
-details.mdp-accordion.right summary > span {
+.mdp-accordion details.right > summary > span,
+details.mdp-accordion.right > summary > span {
   padding-left: 0;
 }
 .mdp-accordion-body {
@@ -57,14 +67,17 @@ details.mdp-accordion.right summary > span {
 
 
 @supports selector(::details-content) {
+  .mdp-accordion details::details-content,
   details.mdp-accordion::details-content {
     padding: 0 var(--pfy-accordion-details-padding, 0);
   }
 
+  .mdp-accordion details[open]::details-content,
   details.mdp-accordion[open]::details-content {
     padding: var(--pfy-accordion-details-padding, 0);
   }
 
+  .mdp-accordion details::details-content,
   details.mdp-accordion::details-content {
     transition: padding 0.2s ease, height 0.2s ease, content-visibility 0.2s ease allow-discrete;
     height: 0;

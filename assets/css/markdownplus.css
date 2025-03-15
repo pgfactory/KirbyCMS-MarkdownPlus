@@ -1,3 +1,58 @@
+/*
+  Markdown Plus Styling
+*/
+
+/* === Accordion ============== */
+
+details.mdp-accordion {
+  outline: var(--pfy-accordion-details-border);
+  outline-offset: -1px;
+}
+details.mdp-accordion::details-content {
+  padding: 0 1em;
+}
+details.mdp-accordion[open] {
+  background: var(--pfy-accordion-details-bg);
+}
+details.mdp-accordion[open]::details-content {
+  padding: 1em;
+}
+details.mdp-accordion[open] summary:after {
+  transform: rotate(90deg);
+}
+details.mdp-accordion::details-content {
+  transition: padding 0.5s ease, height 0.5s ease, content-visibility 0.5s ease allow-discrete;
+  height: 0;
+  overflow: clip;
+  background: var(--pfy-accordion-details-bg);
+}
+details.mdp-accordion summary {
+  background: var(--pfy-accordion-summary-bg, var(--pfy-accordion-details-bg));
+  border-bottom: var(--pfy-accordion-details-border);
+  padding: 0.4em 0.2em;
+}
+details.mdp-accordion summary::marker {
+  content: "";
+}
+details.mdp-accordion summary:after {
+  content: "▷";
+  float: var(--pfy-accordion-marker-position, left);
+  line-height: 1em;
+  font-size: 0.8em;
+  margin: 0.25em 0.4em 0 0;
+  transition: transform 0.5s;
+}
+@supports (interpolate-size: allow-keywords) {
+  :root {
+    interpolate-size: allow-keywords;
+  }
+  .mdp-accordion[open]::details-content {
+    height: auto;
+  }
+}
+
+
+
 /* === Tables ================= */
 .mdp-table-wrapper .mdp-button {
     margin-bottom: 3px;

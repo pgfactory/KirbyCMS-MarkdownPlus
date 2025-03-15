@@ -72,6 +72,7 @@ class MarkdownPlus extends MarkdownExtra
     private static int $asciiTableInx   = 1;
     private static int $imageInx        = 0;
     private static int $tabulatorInx    = 1;
+    private static int $accordionInx    = 0;
 
     private string $divblockChars;
     private bool $compileCodeBlocks;
@@ -670,6 +671,7 @@ class MarkdownPlus extends MarkdownExtra
             ],
         ];
         $blockInx = 0;
+        self::$accordionInx++;
 
         if (preg_match('/\{: (.*?) } \s* $/x', $lines[$current], $m)) {
             $block['accordion'][$blockInx]['accordionAttrs'] = $m[1];
@@ -727,7 +729,8 @@ class MarkdownPlus extends MarkdownExtra
     {
         $out = '';
 
-        $wrapperClass = (sizeof($blocks['accordion']) > 1) ? ' mdp-accordion-auto-close' : '';
+        $mutex = (sizeof($blocks['accordion']) > 1);
+        $wrapperClass = $mutex ? ' mdp-accordion-auto-close' : '';
 
         foreach ($blocks['accordion'] as $block) {
             if ($accordionAttrs = $block['accordionAttrs']) {
@@ -736,19 +739,21 @@ class MarkdownPlus extends MarkdownExtra
             } else {
                 $attrsStr = ' class="mdp-accordion"';
             }
+            if ($mutex) {
+                $n = self::$accordionInx;
+                $attrsStr .= " name='mdp-accordion-$n'";
+            }
 
             $summary = self::compileParagraph($block['summary']);
             $body = self::compile($block['content']);
             $out .= <<<EOT
 
-  <div $attrsStr>
-    <details>
+    <details $attrsStr>
       <summary>$summary</summary>
       <div class="mdp-accordion-body">
 $body
       </div><!-- /.mdp-accordion-body -->
-    </details>
-  </div><!-- /accordion -->
+    </details><!-- /accordion -->
 
 
 EOT;

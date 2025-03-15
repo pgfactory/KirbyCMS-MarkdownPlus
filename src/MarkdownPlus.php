@@ -733,8 +733,8 @@ class MarkdownPlus extends MarkdownExtra
         $n = self::$accordionInx++;
 
         foreach ($blocks['accordion'] as $block) {
-                if ($accordionAttrs = $block['accordionAttrs']) {
-                $attrs = MdPlusHelper::parseInlineBlockArguments('.mdp-accordion ' . $accordionAttrs);
+            if ($accordionAttrs = $block['accordionAttrs']) {
+                $attrs = MdPlusHelper::parseInlineBlockArguments(".mdp-accordion .mdp-accordion-$n " . $accordionAttrs);
                 $attrsStr = $attrs['htmlAttrs'];
             } else {
                 $attrsStr = " class='mdp-accordion mdp-accordion-$n'";
@@ -748,7 +748,7 @@ class MarkdownPlus extends MarkdownExtra
             $out .= <<<EOT
 
     <details $attrsStr>
-      <summary>$summary</summary>
+      <summary><span>$summary</span></summary>
       <div class="mdp-accordion-body">
 $body
       </div><!-- /.mdp-accordion-body -->

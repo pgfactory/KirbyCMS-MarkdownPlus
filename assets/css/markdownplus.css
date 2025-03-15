@@ -3,10 +3,10 @@
 */
 
 /* === Accordion ============== */
-
 details.mdp-accordion {
   outline: var(--pfy-accordion-details-border);
   outline-offset: -1px;
+  overflow: clip;
 }
 details.mdp-accordion::details-content {
   padding: 0 1em;
@@ -14,40 +14,78 @@ details.mdp-accordion::details-content {
 details.mdp-accordion[open] {
   background: var(--pfy-accordion-details-bg);
 }
-details.mdp-accordion[open]::details-content {
-  padding: 1em;
-}
-details.mdp-accordion[open] summary:after {
+details.mdp-accordion[open] summary:before {
   transform: rotate(90deg);
-}
-details.mdp-accordion::details-content {
-  transition: padding 0.5s ease, height 0.5s ease, content-visibility 0.5s ease allow-discrete;
-  height: 0;
-  overflow: clip;
-  background: var(--pfy-accordion-details-bg);
 }
 details.mdp-accordion summary {
   background: var(--pfy-accordion-summary-bg, var(--pfy-accordion-details-bg));
   border-bottom: var(--pfy-accordion-details-border);
   padding: 0.4em 0.2em;
+  cursor: pointer;
+}
+details.mdp-accordion summary > span {
+  display: block;
+  padding-left: 1.1em;
 }
 details.mdp-accordion summary::marker {
   content: "";
 }
-details.mdp-accordion summary:after {
+details.mdp-accordion summary:before {
   content: "▷";
-  float: var(--pfy-accordion-marker-position, left);
+  float: left;
   line-height: 1em;
   font-size: 0.8em;
   margin: 0.25em 0.4em 0 0;
-  transition: transform 0.5s;
+  transition: transform 0.2s;
 }
+/* marker right */
+details.mdp-accordion.right summary:before {
+  float: right;
+}
+details.mdp-accordion.right summary > span {
+  padding-left: 0;
+}
+.mdp-accordion-body {
+  overflow: hidden; /* avoid margin collapse */
+}
+.mdp-accordion-body > ul,
+.mdp-accordion-body > ol {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+
+
+@supports selector(::details-content) {
+  details.mdp-accordion::details-content {
+    padding: 0 var(--pfy-accordion-details-padding, 0);
+  }
+
+  details.mdp-accordion[open]::details-content {
+    padding: var(--pfy-accordion-details-padding, 0);
+  }
+
+  details.mdp-accordion::details-content {
+    transition: padding 0.2s ease, height 0.2s ease, content-visibility 0.2s ease allow-discrete;
+    height: 0;
+    overflow: clip;
+    background: var(--pfy-accordion-details-bg);
+  }
+} /* @supports */
+
+
 @supports (interpolate-size: allow-keywords) {
   :root {
     interpolate-size: allow-keywords;
   }
   .mdp-accordion[open]::details-content {
     height: auto;
+  }
+}
+
+@media print {
+  details::details-content {
+    display: block
   }
 }
 

@@ -27,6 +27,7 @@ details.mdp-accordion > summary {
   border-bottom: var(--pfy-accordion-details-border);
   padding: 0.4em 0.2em;
   cursor: pointer;
+  list-style: none; /* for Safari */
 }
 .mdp-accordion details > summary > span,
 details.mdp-accordion > summary > span {
@@ -37,9 +38,16 @@ details.mdp-accordion > summary > span {
 details.mdp-accordion > summary::marker {
   content: "";
 }
+/* for Safari: */
+.mdp-accordion details > summary::-webkit-details-marker,
+details.mdp-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
 .mdp-accordion details > summary:before,
 details.mdp-accordion > summary:before {
   content: "▷";
+  font-family: sans-serif;
   float: left;
   line-height: 1em;
   font-size: 0.8em;
@@ -75,6 +83,7 @@ details.mdp-accordion.right > summary > span {
   .mdp-accordion details[open]::details-content,
   details.mdp-accordion[open]::details-content {
     padding: var(--pfy-accordion-details-padding, 0);
+    height: auto;
   }
 
   .mdp-accordion details::details-content,

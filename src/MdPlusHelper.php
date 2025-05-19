@@ -11,7 +11,11 @@ use Kirby\Http\Url;
 use PgFactory\PageFactory\PageFactory;
 use function PgFactory\PageFactory\indentLines;
 
-define('MDP_BASE_PATH',         dirname($_SERVER['SCRIPT_FILENAME']) . '/');
+if (defined('PFY_DOCROOT') && defined('PFY_BASE_OFFSET')) {
+    define('MDP_BASE_PATH',         PFY_DOCROOT . PFY_BASE_OFFSET);
+} else {
+    define('MDP_BASE_PATH',         dirname($_SERVER['SCRIPT_FILENAME']) . '/');
+}
 define('MDPMD_CACHE_PATH',       MDP_BASE_PATH . 'site/cache/markdownplus/');
 const MDPMD_MKDIR_MASK =       0700;
 define('MDP_LOGS_PATH',          MDP_BASE_PATH . 'site/logs/');

@@ -5,6 +5,7 @@ namespace PgFactory\MarkdownPlus;
 use Kirby\Data\Data;
 use PgFactory\PageFactory\PageFactory;
 use function PgFactory\PageFactory\explodeTrim;
+use function PgFactory\PageFactory\reloadAgent;
 
 const MDP_LOG_PATH = MDP_BASE_PATH . 'site/logs/';
 
@@ -25,6 +26,7 @@ const MDP_LOG_PATH = MDP_BASE_PATH . 'site/logs/';
 class Permission
 {
     private static array $anonAccess = [];
+    private static bool|null $isLocalhost = null;
 
     /**
      * Evaluates a $permissionQuery against the current visitor's status.
@@ -218,18 +220,72 @@ class Permission
 
 
     /**
+     * Checks whether visitor is logged with role=admin
+     * @return bool
+     */
+    public static function isAdmin(): bool
+    {
+        $user = self::getLoggedInUser();
+        if ($user) {
+            $role = (string)$user->role();
+            if ($role === 'admin') {
+                return true;
+            }
+        }
+        return false;
+    } // isAdmin
+
+
+    /**
      * Returns true if running inside the same subnet (using netmask 255.255.255.0).
      *  (so, this could be a security risk if local subnet is not considered secure)
      * @return bool
      */
     public static function isLocalhost(): bool
     {
-        // if on localhost: allow to override with '?localhost=false'
-        if (($_GET['localhost']??false) === 'false') {
+        if (self::$isLocalhost !== null) {
+            // already evaluated -> return cached result:
+            return self::$isLocalhost;
+        }
+
+        // evaluate whether running on localhost:
+        $ip = $_SERVER['SERVER_ADDR'];
+        $isLocalhost = ($ip === '::1' || $ip === '127.0.0.1' || str_starts_with($ip, '192.168.'));
+        self::$isLocalhost = $isLocalhost;
+        if (!$isLocalhost) {
             return false;
         }
-        $ip = $_SERVER['SERVER_ADDR'];
-        return ($ip === '::1' || $ip === '127.0.0.1' || str_starts_with($ip, '192.168.'));
+
+        if (session_status() === PHP_SESSION_NONE) {
+            $doTerminateSession = true;
+            session_start();
+        } else {
+            $doTerminateSession = false;
+        }
+
+        if (isset($_GET['localhost'])) {
+            // there is a url-command ?localhost:
+            $localhostRequest = $_GET['localhost'];
+            if ($localhostRequest === 'false') { // allows to suppress localhost state
+                $_SESSION['pfy.notLocalhost'] = true;
+                session_write_close();
+                return false;
+            } else {
+                // in any other case, reset session var:
+                unset($_SESSION['pfy.notLocalhost']);
+                session_write_close();
+                reloadAgent();
+                return true;
+            }
+        } else {
+            // no request, check session var:
+            $isLocalhost = !($_SESSION['pfy.notLocalhost']??false);
+            if ($doTerminateSession) {
+                session_abort();
+            }
+            self::$isLocalhost = $isLocalhost;
+            return $isLocalhost;
+        }
     } // isLocalhost
 
 

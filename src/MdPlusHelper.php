@@ -279,7 +279,7 @@ class MdPlusHelper
      */
     public static function autoConvertLinks(string $str): string
     {
-        $autoWrapUrls = (page()->autowrapurls()->value() === 'true') || kirby()->option('pgfactory.markdownplus.options.autoConvertLinks');
+        $autoWrapUrls = (page()->autowrapurls()->value() === 'true') || kirby()->option('pgfactory.markdownplus.autoConvertLinks');
         if (!$autoWrapUrls) {
             return $str;
         }

@@ -89,7 +89,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     public function __construct()
     {
-        $options = kirby()->option('pgfactory.markdownplus.options');
+        $options = kirby()->option('pgfactory.markdownplus');
         $this->divblockChars =      $options['divblockChars'] ?? '@%';
         $this->compileCodeBlocks =  $options['compileCodeBlocks'] ?? true;
         $this->enableSmartypants =  $options['enableSmartypants'] ?? true;

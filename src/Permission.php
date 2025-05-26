@@ -113,7 +113,7 @@ class Permission
     {
         $session = kirby()->session();
         $page = page()->id();
-        $accessCodeKey = kirby()->option('pgfactory.markdownplus.options.accessCodeKey', 'a');
+        $accessCodeKey = kirby()->option('pgfactory.markdownplus.accessCodeKey', 'a');
 
         // check whether there is an access code in url-args:
         if (!isset($_GET[$accessCodeKey])) {
@@ -249,8 +249,11 @@ class Permission
         }
 
         // evaluate whether running on localhost:
-        $ip = $_SERVER['SERVER_ADDR'];
-        $isLocalhost = ($ip === '::1' || $ip === '127.0.0.1' || str_starts_with($ip, '192.168.'));
+        $isLocalhost = kirby()->option('isLocalhost');
+        if ($isLocalhost === null) {
+            $ip = $_SERVER['SERVER_ADDR'];
+            $isLocalhost = ($ip === '::1' || $ip === '127.0.0.1' || str_starts_with($ip, '192.168.'));
+        }
         self::$isLocalhost = $isLocalhost;
         if (!$isLocalhost) {
             return false;

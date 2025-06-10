@@ -55,6 +55,7 @@ const SMARTYPANTS = [
     '/(?<!&gt;)&gt;&gt;(?!&gt;)/ms'  => '&#187;',   // >>
     '/\bEURO\b/ms'  => '&euro;',
     //'/sS/ms'  => 'ß',
+    '|c/o|ms'  => '&incare;',
     '|1/4|ms'  => '&frac14;',
     '|1/2|ms'  => '&frac12;',
     '|3/4|ms'  => '&frac34;',

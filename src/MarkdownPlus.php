@@ -19,29 +19,29 @@ include_once __DIR__ . '/MdPlusHelper.php';
  */
 
  // HTML tags that must not have a closing tag:
-const MDPMD_SINGLETON_TAGS =   'img,input,br,hr,meta,embed,link,source,track,wbr,col,area';
-const INLINE_ELEMENTS = "a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,map,object,'.
+const MDP_HTML_SINGLETON_TAGS =   'img,input,br,hr,meta,embed,link,source,track,wbr,col,area';
+const MDP_INLINE_ELEMENTS = "a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,map,object,'.
 'output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,";
   // 'skip' is a pseudo tag used by MarkdownPlus.
  // the following KirbyTags are identified:
-const SUPPORTED_KIRBYTAGS = 'date|email|file|gist|image|link|tel|twitter|video';
+const MDP_SUPPORTED_KIRBYTAGS = 'date|email|file|gist|image|link|tel|twitter|video';
  // this is the regex pattern to catch KirbyTags:
-const SUPPORTED_KIRBY_TAGS_PATTERN = '\( ('.SUPPORTED_KIRBYTAGS.') :';
+const MDP_SUPPORTED_KIRBY_TAGS_PATTERN = '\( ('.MDP_SUPPORTED_KIRBYTAGS.') :';
  // the following KirbyTags are intercepted and processed by PageFactory:
-const KIRBYTAG_PATTERNS = [
+const MDP_KIRBYTAG_PATTERNS = [
     'link' => '(link:',
     'file' => '(file:',
     'image' => '(image:',
     'date' => '(date:',
     'email' => '(email:'
 ];
-define('MDP_KIRBY_BASE_PATH',    dirname($_SERVER['SCRIPT_FILENAME']) . '/');
+define('MDP_KIRBY_BASE_PATH',       dirname($_SERVER['SCRIPT_FILENAME']) . '/');
 
 
-define('ABBREVIATIONS_FILE',    MDP_KIRBY_BASE_PATH . 'site/custom/variables/abbreviations.txt');
-define('SMARTYPANTS_FILE',      MDP_KIRBY_BASE_PATH . 'site/custom/variables/smartypants.txt');
+define('MDP_ABBREVIATIONS_FILE',    MDP_KIRBY_BASE_PATH . 'site/custom/variables/abbreviations.txt');
+define('MDP_SMARTYPANTS_FILE',      MDP_KIRBY_BASE_PATH . 'site/custom/variables/smartypants.txt');
 
-const SMARTYPANTS = [
+const MDP_SMARTYPANTS = [
     '/(?<!-)-&gt;/ms'  => '&rarr;',
     '/(?<!=)=&gt;/ms'  => '&rArr;',
     '/(?<!!)&lt;-/ms'  => '&larr;',
@@ -412,7 +412,7 @@ class MarkdownPlus extends MarkdownExtra
         $attrs = MdPlusHelper::parseInlineBlockArguments($rest);
 
         $tag = $attrs['tag'];
-        $isInlineTag = str_contains(INLINE_ELEMENTS, ",$tag,");
+        $isInlineTag = str_contains(MDP_INLINE_ELEMENTS, ",$tag,");
         if ($isInlineTag) {
             if ($attrs['literal'] === null) {
                 $attrs['literal'] = true;
@@ -501,7 +501,7 @@ class MarkdownPlus extends MarkdownExtra
                         $html = self::compile($block, true);
                     }
                     $tag = $attrs['tag'] ?: 'div';
-                    $_tag = str_contains(MDPMD_SINGLETON_TAGS, $tag)? '': "</$tag>";
+                    $_tag = str_contains(MDP_HTML_SINGLETON_TAGS, $tag)? '': "</$tag>";
                     $str .= "<$tag{$attrs['htmlAttrs']}>\n$html\n$_tag\n";
                     $block = false;
                 } else {
@@ -542,7 +542,7 @@ class MarkdownPlus extends MarkdownExtra
             return "$out\n\n";
         } else {
             $tag = $tag?: 'div';
-            $_tag = str_contains(MDPMD_SINGLETON_TAGS, $tag)? '': "</$tag>";
+            $_tag = str_contains(MDP_HTML_SINGLETON_TAGS, $tag)? '': "</$tag>";
 
             if ($block['inline']) {
                 return "<$tag$attrs>$out$_tag";
@@ -1393,16 +1393,16 @@ EOT;
             $smartypants = self::$smartypants;
 
         } else {
-            if (file_exists(SMARTYPANTS_FILE)) {
+            if (file_exists(MDP_SMARTYPANTS_FILE)) {
                 $smartypants = [];
-                $lines = explodeTrim("\n", getFile(SMARTYPANTS_FILE, 'z,h'), true);
+                $lines = explodeTrim("\n", getFile(MDP_SMARTYPANTS_FILE, 'z,h'), true);
                 foreach ($lines as $line) {
                     list($key, $value) = explode(': ', $line);
                     $smartypants[$key] = $value;
                 }
                 self::$smartypants = $smartypants;
             } else {
-                $smartypants = SMARTYPANTS;
+                $smartypants = MDP_SMARTYPANTS;
             }
         }
 
@@ -1794,12 +1794,12 @@ EOT;
      */
     private function handleKirbyTags(string $str): string
     {
-        if (!preg_match('/'.SUPPORTED_KIRBY_TAGS_PATTERN.'.* \)/xms', $str)) {
+        if (!preg_match('/'.MDP_SUPPORTED_KIRBY_TAGS_PATTERN.'.* \)/xms', $str)) {
             return $str;
         }
         $rest = $str;
         $str = '';
-        while (preg_match('/(?<!\\\)'.SUPPORTED_KIRBY_TAGS_PATTERN.'/xms', $rest, $m, PREG_OFFSET_CAPTURE)) {
+        while (preg_match('/(?<!\\\)'.MDP_SUPPORTED_KIRBY_TAGS_PATTERN.'/xms', $rest, $m, PREG_OFFSET_CAPTURE)) {
             $p1 = $m[0][1];
             list ($p1, $p2) = MdPlusHelper::strPosMatching($rest, $p1, '(', ')');
             $str = substr($rest, 0, $p1);
@@ -1814,7 +1814,7 @@ EOT;
 
 
     public function processKirbyTag($kirbyTag) {
-        foreach (KIRBYTAG_PATTERNS as $macro => $pattern) {
+        foreach (MDP_KIRBYTAG_PATTERNS as $macro => $pattern) {
             if (str_starts_with($kirbyTag, $pattern)) {
                 $args = trim(substr($kirbyTag, strlen($pattern)), ' )');
 
@@ -1893,8 +1893,8 @@ EOT;
      */
     private function loadAbbreviations()
     {
-        if (file_exists(ABBREVIATIONS_FILE)) {
-            $lines = explode("\n", getFile(ABBREVIATIONS_FILE));
+        if (file_exists(MDP_ABBREVIATIONS_FILE)) {
+            $lines = explode("\n", getFile(MDP_ABBREVIATIONS_FILE));
             foreach ($lines as $line) {
                 if (!$line) {
                     continue;

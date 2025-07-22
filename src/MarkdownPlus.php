@@ -74,6 +74,7 @@ class MarkdownPlus extends MarkdownExtra
     private static int $imageInx        = 0;
     private static int $tabulatorInx    = 1;
     private static int $accordionInx    = 1;
+    private static int $slidingPanelsInx= 1;
 
     private string $divblockChars;
     private bool $compileCodeBlocks;
@@ -634,6 +635,179 @@ class MarkdownPlus extends MarkdownExtra
         }
         return "<div class='mdp-tabulator-outer-wrapper mdp-tabulator-outer-wrapper-$inx'$style>\n$out\n</div><!-- /mdp-tabulator-outer-wrapper-$inx -->\n";
     } // renderTabulator
+
+
+
+    // === Sliding Panels ==================
+    /**
+     * Pattern: [|]  or [|s]
+     * @param string $line
+     * @param array $lines
+     * @param int $current
+     * @return bool
+     */
+    protected function identifySlidingPanels(string $line): bool
+    {
+        if (preg_match('/^\[\|\d{0,3}\]\s.+/', $line, $m)) {
+            return true;
+        }
+        return false;
+    } // identifySlidingPanels
+
+    /**
+     * @param array $lines
+     * @param int $current
+     * @return array
+     */
+    protected function consumeSlidingPanels(array $lines, int $current): array
+    {
+        // create block array
+        $block = [
+            'SlidingPanels',
+            'panels' => [
+                [
+                    'content' => '',
+                    'title' => '',
+                    'panelsAttrs' => '',
+
+                ]
+            ],
+        ];
+        $blockInx = 0;
+
+        if (preg_match('/\{: (.*?) } \s* $/x', $lines[$current], $m)) {
+            $block['panels'][$blockInx]['panelsAttrs'] = $m[1];
+            $lines[$current] = str_replace($m[0], '', $lines[$current]);
+        }
+
+        if (!preg_match('/^(\[\|\d{0,3}\]) \s* (.*)/x', $lines[$current], $m)) {
+            throw new Exception("Syntax error in line $current: '{$lines[$current]}'");
+        }
+        $marker = preg_quote($m[1]);
+        $block['panels'][$blockInx]['title'] = $m[2];
+        $endPattern = "|^$marker|"; // end or start of next accordion
+
+        // consume all lines until $marker, e.g. <>
+        for($i = $current+1, $count = count($lines)-1; $i < $count; $i++) {
+            $line = $lines[$i];
+            if (!preg_match($endPattern, $line)) {
+                $block['panels'][$blockInx]['content'] .= "$line\n";
+            } else {
+                if (preg_match("|^$marker\s*(.+)$|", $line, $m)) {
+                    $line = $m[1];
+                    $blockInx++;
+
+                    $panelsAttrs = '';
+                    if (preg_match('/(.*) \{: (.*?) } \s* $/x', $line, $mm)) {
+                        $line = $mm[1];
+                        $panelsAttrs = $mm[2];
+                    }
+                    $block['panels'][$blockInx] = [
+                        'content' => '',
+                        'title' => $line,
+                        'panelsAttrs' => $panelsAttrs,
+                    ];
+
+                } else {
+                    break;
+                }
+            }
+        }
+        // remove empty panels elements:
+        for ($p=0; $p < sizeof($block['panels']); $p++) {
+            if (!trim($block['panels'][$p]['title'])) {
+                unset($block['panels'][$p]);
+            }
+        }
+        return [$block, $i];
+    } // consumeSlidingPanels
+
+    /**
+     * @param array $block
+     * @return string
+     * @throws Exception
+     */
+    protected function renderSlidingPanels(array $blocks): string
+    {
+        $panelBodies = '';
+
+        $wrapperClass = '';
+        $n = self::$slidingPanelsInx++;
+        $js = '';
+        if ($n === 1) {
+            $js = <<<EOT
+
+<script>
+  function mdpOpenPreviousPanel(el) {
+    const panel = el.closest('.mdp-panel');
+    const prevpanel = panel.previousElementSibling;
+    if (prevpanel) {
+        panel.classList.remove('mdp-panel-open');
+        prevpanel.classList.add('mdp-panel-open');
+    }
+  }
+  function mdpOpenNextPanel(el) {
+    const panel = el.closest('.mdp-panel');
+    const nextpanel = panel.nextElementSibling;
+    if (nextpanel) {
+        panel.classList.remove('mdp-panel-open');
+        nextpanel.classList.add('mdp-panel-open');
+    }
+  }
+  document.addEventListener('click', (ev) => {
+    if (!ev.target.closest('.mdp-panel-arrows button')) {
+      return;
+    }
+    const el = ev.target;
+    const panel = el.closest('.mdp-panel');
+    if (el.closest('.mdp-panel-arrow-prev')) {
+        mdpOpenPreviousPanel(el);
+    } else if (el.closest('.mdp-panel-arrow-next')) {
+        mdpOpenNextPanel(el);
+    }
+  });
+</script>
+
+EOT;
+
+        }
+        $i = 0;
+        foreach ($blocks['panels'] as $block) {
+            $i++;
+            if ($panelsAttrs = $block['panelsAttrs']) {
+                $open = $i === 1 ? ' .mdp-panel-open' : '';
+                $attrs = MdPlusHelper::parseInlineBlockArguments(".mdp-panel .mdp-panel-$i$open " . $panelsAttrs);
+                $attrsStr = $attrs['htmlAttrs'];
+            } else {
+                $open = $i === 1 ? ' mdp-panel-open' : '';
+                $attrsStr = " class='mdp-panel mdp-panel-$i$open'";
+            }
+
+            $title = self::compileParagraph($block['title']);
+            $body = self::compile($block['content']);
+            $panelBodies .= <<<EOT
+<div$attrsStr><div>
+<div class="mdp-panel-arrows"><button class="mdp-panel-arrow-prev">&larr;</button> <button class="mdp-panel-arrow-next">&rarr;</button></div>
+
+$title
+$body
+
+</div></div><!-- /mdp-panel-$n -->
+EOT;
+        }
+        $out = <<<EOT
+$js
+<div class="mdp-panels-wrapper mdp-panels-wrapper-$n$wrapperClass">
+<div>
+$panelBodies
+</div>
+</div><!-- /panels-wrapper-$n -->
+
+
+EOT;
+        return $out;
+    } // renderSlidingPanels
+
 
 
 

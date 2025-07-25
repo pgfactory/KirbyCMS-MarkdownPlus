@@ -113,33 +113,22 @@ details.mdp-accordion.right > summary > span {
 
 
 /* === Sliding Panels ================== */
-.pfy-default-styling .mdp-panel-arrows {
-  display: flex;
-  justify-content: space-between;
-}
-.pfy-default-styling .mdp-panel-arrows button {
-  background: transparent;
-  border: none;
-}
 .pfy-default-styling .mdp-panels-wrapper {
   --mdp-panels-width: calc(100vw - 2 * var(--mdp-page-padding, 4vw));
   width: var(--mdp-panels-width);
   overflow: hidden;
-  /*font-size: 0;*/
 }
 .pfy-default-styling .mdp-panels-wrapper > div {
   width: 10000vw;
 }
 .pfy-default-styling .mdp-panels-wrapper > div > div:first-child button.mdp-panel-arrow-prev {
   width: 0;
-  /*height: 0;*/
   padding: 0;
   border: none;
   overflow: hidden;
 }
 .pfy-default-styling .mdp-panels-wrapper > div > div:last-child button.mdp-panel-arrow-next {
   width: 0;
-  /*height: 0;*/
   padding: 0;
   border: none;
   overflow: hidden;
@@ -147,9 +136,8 @@ details.mdp-accordion.right > summary > span {
 .pfy-default-styling .mdp-panel {
   display: inline-block;
   vertical-align: top;
-  /*font-size: 1rem;*/
   width: 0;
-  transition: width 0.25s;
+  transition-property: width;
   overflow: hidden;
   margin-top: -1px;
 }
@@ -159,7 +147,20 @@ details.mdp-accordion.right > summary > span {
 .pfy-default-styling .mdp-panel > div {
   width: var(--mdp-panels-width);
 }
-
+.pfy-default-styling .mdp-panel-arrows {
+  display: flex;
+  justify-content: space-between;
+}
+.pfy-default-styling .mdp-panel-arrows button {
+  background: transparent;
+  border: none;
+}
+.mdp-panel-arrows .mdp-panel-arrow-prev span {
+  margin-left: 0.5em;
+}
+.mdp-panel-arrows .mdp-panel-arrow-next span {
+  margin-right: 0.5em;
+}
 
 
 

@@ -5,6 +5,7 @@ use cebe\markdown\MarkdownExtra;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
 use PgFactory\PageFactory\Macros;
+use PgFactory\PageFactory\TransVars;
 use function PgFactory\PageFactory\explodeTrim;
 use function PgFactory\PageFactory\getFile;
 use function PgFactory\PageFactory\shieldStr;
@@ -739,7 +740,12 @@ class MarkdownPlus extends MarkdownExtra
 
 <script>
   function mdpOpenPreviousPanel(el) {
+    const panels = el.closest('.mdp-panels-wrapper');
     const panel = el.closest('.mdp-panel');
+    const panelsInx = panels.classList.value.replace(/\\D/g, "");
+    const panelInx = parseInt(panel.classList.value.match(/mdp-panel-(\d+)/)[1]) - 1;
+    const currPanelClass = `.mdp-panels-wrapper-\${panelsInx} .mdp-panel-\${panelInx}`;
+    sessionStorage.setItem('pfyCurrPanel-' + panelsInx, currPanelClass);
     const prevpanel = panel.previousElementSibling;
     if (prevpanel) {
         panel.classList.remove('mdp-panel-open');
@@ -747,7 +753,12 @@ class MarkdownPlus extends MarkdownExtra
     }
   }
   function mdpOpenNextPanel(el) {
+    const panels = el.closest('.mdp-panels-wrapper');
     const panel = el.closest('.mdp-panel');
+    const panelsInx = panels.classList.value.replace(/\\D/g, "");
+    const panelInx = parseInt(panel.classList.value.match(/mdp-panel-(\d+)/)[1]) + 1;
+    const currPanelClass = `.mdp-panels-wrapper-\${panelsInx} .mdp-panel-\${panelInx}`;
+    sessionStorage.setItem('pfyCurrPanel-' + panelsInx, currPanelClass);
     const nextpanel = panel.nextElementSibling;
     if (nextpanel) {
         panel.classList.remove('mdp-panel-open');
@@ -765,6 +776,26 @@ class MarkdownPlus extends MarkdownExtra
     } else if (el.closest('.mdp-panel-arrow-next')) {
         mdpOpenNextPanel(el);
     }
+  });
+  document.addEventListener('DOMContentLoaded', () => {
+      for (let i=1; i<=6; i++){
+          const currPanelClass = sessionStorage.getItem('pfyCurrPanel-' + i);
+          const currPanel = document.querySelector(currPanelClass);
+          if (currPanel) {
+              const allPanels = document.querySelectorAll(`.mdp-panels-wrapper-\${i} .mdp-panel`);
+              if (allPanels) {
+                  allPanels.forEach(el => {
+                      el.classList.remove('mdp-panel-open'); 
+                  });
+              }
+            currPanel.classList.add('mdp-panel-open');
+          }
+      }
+    setTimeout(() => {
+      domForAll('.mdp-panel', el => {
+        el.style.transitionDuration = '0.25s';
+      });
+    }, 50);
   });
 </script>
 
@@ -784,12 +815,23 @@ EOT;
             }
 
             $title = self::compileParagraph($block['title']);
+            $btnTitlePrev = 'Go to previous panel';
+            $btnTitleNext = 'Go to next panel';
+            if (class_exists('PgFactory\\PageFactory\\TransVars')) {
+                $btnTitlePrev = TransVars::getVariable('pfy-goto-prev-panel-title', $btnTitlePrev);
+                $btnTitleNext = TransVars::getVariable('pfy-goto-next-panel-title', $btnTitleNext);
+            }
+            $btnTitlePrev = " title='$btnTitlePrev'";
+            $btnTitleNext = " title='$btnTitleNext'";
+            $prevLabel = ($i>1) ? $blocks['panels'][$i-2]['title'] : '';
+            $nextLabel = ($i<sizeof($blocks['panels'])) ? $blocks['panels'][$i]['title'] : '';
+
             $body = self::compile($block['content']);
             $panelBodies .= <<<EOT
 <div$attrsStr><div>
-<div class="mdp-panel-arrows"><button class="mdp-panel-arrow-prev">&larr;</button> <button class="mdp-panel-arrow-next">&rarr;</button></div>
+<div class="mdp-panel-arrows"><button class="mdp-panel-arrow-prev"$btnTitlePrev>&larr;<span>$prevLabel</span></button> <button class="mdp-panel-arrow-next"$btnTitleNext><span>$nextLabel</span>&rarr;</button></div>
 
-$title
+<div class="mdp-panel-title">$title</div>
 $body
 
 </div></div><!-- /mdp-panel-$n -->
@@ -1505,6 +1547,12 @@ EOT;
      */
     private function postprocess(string $str, bool $omitPWrapperTag = false): string
     {
+        // check string size limit for regex, increase if necessary:
+        $l = strlen($str);
+        if ($l > intval(ini_get('pcre.backtrack_limit'))) {
+            ini_set('pcre.backtrack_limit', 2 * $l);
+        }
+
         // lines that contain but a variable or macro (e.g. "<p>{{ lorem( help ) }}</p>") -> remove enclosing P-tags:
         $str = preg_replace('|<p> ({{ .*? }}) </p>|xms', "$1", $str);
 
@@ -2024,7 +2072,7 @@ EOT;
      */
     private function processByMacro(string $macroName, string $argStr): mixed
     {
-        if (class_exists('PageFactory')) {
+        if (!class_exists('PgFactory\\PageFactory\\PageFactory')) {
             return false;
         }
         // insert commas between arguments:

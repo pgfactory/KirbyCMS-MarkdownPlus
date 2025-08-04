@@ -855,6 +855,16 @@ EOT;
 
     // === Accordion ==================
     /**
+     * <> SUMMARY   {: Options}
+     * DETAILS...
+     * <>
+     *
+     * Options:
+     *      - any class, style etc. injection
+     *      - 'open'  -> to pre-open this accordion, e.g.
+     *
+     * <> SUMMARY {: open }
+     * <>
      * @param string $line
      * @param array $lines
      * @param int $current
@@ -953,6 +963,9 @@ EOT;
             if ($accordionAttrs = $block['accordionAttrs']) {
                 $attrs = MdPlusHelper::parseInlineBlockArguments(".mdp-accordion .mdp-accordion-$n " . $accordionAttrs);
                 $attrsStr = $attrs['htmlAttrs'];
+                if (str_contains($attrs['text'], 'open')) {
+                    $attrsStr .= ' open';
+                }
             } else {
                 $attrsStr = " class='mdp-accordion mdp-accordion-$n'";
             }

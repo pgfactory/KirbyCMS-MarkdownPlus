@@ -2063,12 +2063,16 @@ EOT;
                 }
 
                 if ($macro === 'file') {
-                    $args .= ', download:true';
+                    $args .= ' download:true';
+                    $macro = 'link';
                 } elseif ($macro === 'email') {
-                    $args .= ', type:mail';
+                    $args = "url:$args type:mail";
+                    $macro = 'link';
+                } elseif ($macro === 'image') {
+                    $macro = 'img';
                 }
 
-                $res = $this->processByMacro($macro === 'date' ? '_date' : ($macro === 'image' ? 'img' : 'link'), $args);
+                $res = $this->processByMacro($macro, $args);
                 return $res;
             }
         }

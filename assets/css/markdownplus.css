@@ -112,6 +112,32 @@ details.mdp-accordion.right > summary > span {
 }
 
 
+/* === ToDo Lists ====================== */
+.pfy-default-styling .pfy-todo-list li {
+  list-style-type: " ";
+  position: relative;
+  padding-left: 0.4em;
+  user-select: none;
+}
+.pfy-default-styling .pfy-todo-list li::marker {
+  font-size: 1.3em;
+}
+.pfy-default-styling .pfy-todo-list li.checked {
+  list-style-type: "✓";
+}
+.pfy-default-styling .pfy-todo-list li::before {
+  content: " ";
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  width: 1.1em;
+  height: 1.1em;
+  position: absolute;
+  top: 0.2em;
+  left: -1.2em;
+}
+
+
+
 /* === Sliding Panels ================== */
 .pfy-default-styling .mdp-panels-wrapper {
   --mdp-panels-width: calc(100vw - 2 * var(--mdp-page-padding, 4vw));

@@ -649,7 +649,7 @@ class MarkdownPlus extends MarkdownExtra
      */
     protected function identifySlidingPanels(string $line): bool
     {
-        if (preg_match('/^\[\|\d{0,3}\]\s.+/', $line, $m)) {
+        if (preg_match('/^\[\|\d{0,3}]\s.+/', $line, $m)) {
             return true;
         }
         return false;
@@ -681,7 +681,7 @@ class MarkdownPlus extends MarkdownExtra
             $lines[$current] = str_replace($m[0], '', $lines[$current]);
         }
 
-        if (!preg_match('/^(\[\|\d{0,3}\]) \s* (.*)/x', $lines[$current], $m)) {
+        if (!preg_match('/^(\[\|\d{0,3}]) \s* (.*)/x', $lines[$current], $m)) {
             throw new Exception("Syntax error in line $current: '{$lines[$current]}'");
         }
         $marker = preg_quote($m[1]);
@@ -1092,6 +1092,72 @@ $out</dl>
 EOT;
         return $out;
     } // renderDefinitionList
+
+
+
+    // === ToDoList ==================
+    /**
+     * @param string $line
+     * @return bool
+     */
+    protected function identifyToDoList(string $line): bool
+    {
+        if (preg_match('/^-?\[.?]\s+/', $line)) {
+            return true;
+        }
+        return false;
+    } // identifyToDoList
+
+    /**
+     * @param array $lines
+     * @param int $current
+     * @return array
+     */
+    protected function consumeToDoList(array $lines, int $current): array
+    {
+        // create block array
+        $block = [
+            'toDoList',
+            'content' => [],
+            'checked' => [],
+        ];
+
+        // consume all lines until 2 empty line
+        for($i = $current, $count = count($lines); $i < $count; $i++) {
+            $line = $lines[$i];
+            if (!preg_match('/^-?\[.?]\s+/', $line)) {  // empty line
+                if (!($lines[$i-1]??false)) {
+                    break;
+                }
+            } elseif (preg_match('/^-?\[(.?)]\s+(.*)/', $line, $m)) {
+                $checked = (bool)trim($m[1]);
+                $line = $m[2];
+            }
+            $block['content'][] = $line;
+            $block['checked'][] = $checked;
+        }
+        return [$block, $i];
+    } // consumeToDoList
+
+    /**
+     * @param array $block
+     * @return string
+     * @throws Exception
+     */
+    protected function renderToDoList(array $block): string
+    {
+        $out = '';
+        foreach ($block['content'] as $i =>  $line) {
+            $line = self::compile($line, true);
+            $line = trim($line);
+            if ($line) {
+                $checked = $block['checked'][$i] ? ' class="checked"' : '';
+                $out .= "<li$checked>$line</li>\n";
+            }
+        }
+        $out = "<ul class='pfy-todo-list'>\n$out</ul>\n";
+        return $out;
+    } // renderToDoList
 
 
 
@@ -1725,6 +1791,10 @@ EOT;
             } elseif (str_starts_with($line, '- ')) {
                 if (($lines[$i-1]??false) && preg_match('/^[^\-\s].*/',$lines[$i-1])) {
                     $lines[$i-1] .= "\n";
+                }
+                // convert '- []' to '[]':
+                if (preg_match('/^-\s?(\[.*)/',$line, $m)) {
+                    $lines[$i] = $m[1];
                 }
             } elseif (preg_match('/^\d+!?\./', $line, $m)) {
                 if (($lines[$i-1]??false) && !preg_match('/^\d+!?\./', $lines[$i-1], $m)) {

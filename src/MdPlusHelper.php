@@ -147,8 +147,9 @@ class MdPlusHelper
      * @return string
      * @throws Exception
      */
-    public static function renderIcon(string $iconName, string $title = '', bool $throwError = false): string
+    public static function renderIcon(string $iconName, string $title = '', string $class = '', bool $throwError = false): string
     {
+        $class = $class ? " $class": '';
         $iconName0 = $iconName;
         if (preg_match('/^:(.*?):(.*)/', $iconName, $m)) {
             $iconName = $m[1].$m[2];
@@ -170,10 +171,10 @@ class MdPlusHelper
         }
 
         if (str_ends_with($iconFile, '.svg')) {
-            $icon = self::renderSvgIcon($iconName, $iconFile);
-            $icon = "<span class='mdp-icon'$title>$icon</span>";
+            $icon = self::renderIconFromFile($iconName, $iconFile);
+            $icon = "<span class='mdp-icon$class'$title>$icon</span>";
         } else {
-            $icon = "<span class='mdp-icon'$title><img src='$iconFile' alt=''></span>";
+            $icon = "<span class='mdp-icon$class'$title><img src='$iconFile' alt=''></span>";
         }
         return $icon;
     } // renderIcon
@@ -186,11 +187,15 @@ class MdPlusHelper
      * @return string
      * @throws Exception
      */
-    private static function renderSvgIcon(string $iconName, string $iconFile): string
+    public static function renderIconFromFile(string $iconName, string $iconFile, string $class = ''): string
     {
         $iconId = "pfy-iconsrc-$iconName";
         if (isset(self::$processedSvgIcons[$iconName])) {
             $icon = self::$processedSvgIcons[$iconName];
+
+        } elseif (!str_ends_with($iconFile, '.svg')) {
+            $icon = "<img src='$iconFile' alt=''>";
+
         } else {
             $str = svg($iconFile);
             $str = str_replace("\n", '', $str);
@@ -206,8 +211,11 @@ class MdPlusHelper
             self::$bodyEndInjections .= $str;
             self::$processedSvgIcons[$iconName] = $icon;
         }
+        if ($class) {
+            $icon = "<span class='$class'>$icon</span>";
+        }
         return $icon;
-    } // renderSvgIcon
+    } // renderIconFromFile
 
 
     /**

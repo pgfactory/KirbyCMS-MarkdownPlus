@@ -255,7 +255,7 @@ class MdPlusHelper
      * @return string
      * @throws Exception
      */
-    public static function unshieldStr(string $str, bool $unshieldLiteral = null): string
+    public static function unshieldStr(string $str, bool|null $unshieldLiteral = null): string
     {
         if (!str_contains($str, '<')) {
             return $str;
@@ -607,7 +607,7 @@ EOT;
      * @param $attr
      * @return array
      */
-    private static function _assembleHtmlAttrs(string $id, string $class, string $style, $attr, string $aux): array
+    private static function _assembleHtmlAttrs(string $id, string $class, string $style, array $attr, string $aux): array
     {
         $out = '';
         $htmlAttrArray = [];

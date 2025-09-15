@@ -627,6 +627,8 @@ class MarkdownPlus extends MarkdownExtra
                 $line .= "<div class='tt$i$lastClass'>$elem</div>";
                 if ($w = ($widths[$n-1][$p]??false)) {
                     $style .= "--tt$i-width: $w;";
+                } else {
+                    $style .= "--tt$i-width: 6em;";
                 }
             }
             $out .= "<div class='mdp-tabulator-wrapper mdp-tabulator-wrapper-$n'>\n$line\n</div>\n";

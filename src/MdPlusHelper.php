@@ -1365,7 +1365,7 @@ EOT;
         $shieldedClosing = substr_count($str, '\\' . $pat2, $p0);
         $closing = substr_count($str, $pat2, $p0) - $shieldedClosing;
         if ($opening > $closing) {
-            throw new Exception("Error in source: unbalanced number of &#123;&#123; resp }}");
+            throw new Exception("Error in source: unbalanced number of '$pat1' resp '$pat2'.");
         }
     } // checkBracesBalance
 

@@ -354,13 +354,13 @@ class MdPlusHelper
         $literal = $inline = 0;
         $attr = [];
 
-        $str = str_replace('&lt;', '<', $str);
+        $str = str_replace(['&lt;', '&ndash;'], ['<', '--'], $str);
 
         // parse argument string, element by element:
         while ($str) {
             $str = ltrim($str);
             $c1 = $str[0]??'';
-            if (ctype_alpha($c1)) {
+            if (ctype_alpha($c1) || str_starts_with($str, '--')) {
 
                 // catch style instructions "xx:yy":
                 if (preg_match('/^([\w-]+):\s*(.*)/', $str, $m)) {

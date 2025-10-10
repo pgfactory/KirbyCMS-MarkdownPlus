@@ -422,7 +422,7 @@ class MarkdownPlus extends MarkdownExtra
         }
 
         $block['tag'] = $tag;
-        $block['attributes'] = $attrs['htmlAttrs'];
+        $block['attributes'] = str_contains($attrs['htmlAttrs'], '--') ? shieldStr($attrs['htmlAttrs']) : $attrs['htmlAttrs'];
         $block['lang'] = $attrs['lang'];
         $block['literal'] = $attrs['literal'];
         $block['meta'] = '';
@@ -620,6 +620,7 @@ class MarkdownPlus extends MarkdownExtra
             $n++;
             $last = sizeof($parts) - 1;
             $line = '';
+            $lastWidth = '';
             foreach ($parts as $p => $elem) {
                 $i = $p + 1;
                 $lastClass = ($p === $last) ? ' tt-last' : '';
@@ -627,12 +628,14 @@ class MarkdownPlus extends MarkdownExtra
                 $line .= "<div class='tt$i$lastClass'>$elem</div>";
                 if ($w = ($widths[$n-1][$p]??false)) {
                     $style .= "--tt$i-width: $w;";
-                } else {
-                    $style .= "--tt$i-width: 6em;";
+                    $lastWidth .= " - var(--tt$i-width, var(--tt-width))";
+                } elseif ($p !== $last) {
+                    $lastWidth .= " - var(--tt$i-width, var(--tt-width))";
                 }
             }
             $out .= "<div class='mdp-tabulator-wrapper mdp-tabulator-wrapper-$n'>\n$line\n</div>\n";
         }
+        $style .= "--tt-last: calc(100%$lastWidth)";
         if ($style) {
             $style = shieldStr(" style='$style'");
         }
@@ -1092,6 +1095,7 @@ $out</dl>
 
 
 EOT;
+        $out = shieldStr($out);
         return $out;
     } // renderDefinitionList
 
@@ -1924,7 +1928,7 @@ EOT;
 
         // attributes:
         if ($attrs['htmlAttrs']??false) {
-            $elem .= $attrs['htmlAttrs'];
+            $elem .=  str_contains($attrs['htmlAttrs'], '--') ? shieldStr($attrs['htmlAttrs']) : $attrs['htmlAttrs'];
         }
 
         return "$elem>$rest";

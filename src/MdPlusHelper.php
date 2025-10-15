@@ -167,7 +167,7 @@ class MdPlusHelper
             if ($throwError) {
                 throw new Exception("Error: icon '$iconName' not found.");
             }
-            return $iconName0;
+            return '';
         }
 
         if (str_ends_with($iconFile, '.svg')) {

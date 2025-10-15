@@ -2,6 +2,8 @@
 namespace PgFactory\MarkdownPlus;
 
 use cebe\markdown\MarkdownExtra;
+use DOMDocument;
+use DOMXPath;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
 use PgFactory\PageFactory\Macros;
@@ -43,13 +45,13 @@ define('MDP_ABBREVIATIONS_FILE',    MDP_KIRBY_BASE_PATH . 'site/custom/variables
 define('MDP_SMARTYPANTS_FILE',      MDP_KIRBY_BASE_PATH . 'site/custom/variables/smartypants.txt');
 
 const MDP_SMARTYPANTS = [
-    '/(?<!-)-&gt;/ms'  => '&rarr;',
-    '/(?<!=)=&gt;/ms'  => '&rArr;',
-    '/(?<!!)&lt;-/ms'  => '&larr;',
-    '/(?<!=)&lt;=/ms'  => '&lArr;',
+    '/(?<!-)->/ms'  => '&rarr;',
+    '/(?<!=)=>/ms'  => '&rArr;',
+    '/(?<!!)<-/ms'  => '&larr;',
+    '/(?<!=)<=/ms'  => '&lArr;',
     '/(?<!\.)\.\.\.(?!\.)/ms'  => '&hellip;',
     '/(?<!-|!)--(?!-|>)/ms'  => '&ndash;', // in particular: <!-- -->
-    '/(?<!-)---(?!-)/ms'  => '&mdash;',
+    '/(?<!-|\||\n)---(?!-)/ms'  => '&mdash;', // in particular |---
     '/(?<!&lt;)&lt;<(?!&lt;)/ms'  => '&#171;',      // <<
     '/(?<!&lt;)&lt;&lt;(?!&lt;)/ms'  => '&#171;',   // <<
     '/(?<!&gt;)>&gt;(?!&gt;)/ms'  => '&#187;',      // >>
@@ -637,7 +639,7 @@ class MarkdownPlus extends MarkdownExtra
         }
         $style .= "--tt-last: calc(100%$lastWidth)";
         if ($style) {
-            $style = shieldStr(" style='$style'");
+            $style = " style='$style'";
         }
         return "<div class='mdp-tabulator-outer-wrapper mdp-tabulator-outer-wrapper-$inx'$style>\n$out\n</div><!-- /mdp-tabulator-outer-wrapper-$inx -->\n";
     } // renderTabulator
@@ -1614,6 +1616,11 @@ EOT;
 
         $str = $this->handleIncludes($str);
 
+        // handle smartypants:
+        if (kirby()->option('smartypants')) {
+            $str = $this->smartypants($str);
+        }
+
         $str = $this->fixCebeBugs($str);
 
         $str = $this->handleLineBreaks($str);
@@ -1648,11 +1655,6 @@ EOT;
         $str = $this->handleKirbyTags($str);
 
         $str = $this->_compileCodeBlocks($str);
-
-        // handle smartypants:
-        if (kirby()->option('smartypants')) {
-            $str = $this->smartypants($str);
-        }
 
         // remove outer <p> tags if requested:
         if ($omitPWrapperTag) {
@@ -1713,27 +1715,7 @@ EOT;
             }
         }
 
-        $out = '';
-        list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<tt>', '</tt>');
-        if ($p1 !== false) {
-            while ($p1 !== false) {
-                $s1 = substr($str, 0, $p1);
-                $s1 = preg_replace(array_keys($smartypants), array_values($smartypants), $s1);
-                $s2 = substr($str, $p1, ($p2 - $p1 + 6));
-                $s3 = substr($str, $p2 + 6);
-                $out .= "$s1$s2";
-                $str = $s3;
-                list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<tt>', '</tt>');
-                if ($p1 === false) {
-                    $s3 = preg_replace(array_keys($smartypants), array_values($smartypants), $s3);
-                    $out .= $s3;
-                }
-            }
-        } else {
-            $out = preg_replace(array_keys($smartypants), array_values($smartypants), $str);
-        }
-
-        return $out;
+        return preg_replace(array_keys($smartypants), array_values($smartypants), $str);
     } // smartypants
 
 

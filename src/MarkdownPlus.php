@@ -53,8 +53,9 @@ const MDP_SMARTYPANTS = [
     '/(?<!-|!)--(?!-|>)/ms'  => '&ndash;', // in particular: <!-- -->
     '/(?<!-|\||\n)---(?!-)/ms'  => '&mdash;', // in particular |---
 
-    '/(?<!<) \<{2}(\w) /xms'  => "&#171;$1", // <<C
-    '/(\w) \>{2} (?!>)/xms'  => "$1&#187;",  // C>>
+// disabled due to conflict with 8em>> pattern
+//    '/(?<!<) \<{2}(\w) /xms'  => "&#171;$1", // <<C
+//    '/(\w) \>{2} (?!>)/xms'  => "$1&#187;",  // C>>
 
     '/\bEURO\b/ms'  => '&euro;',
     //'/sS/ms'  => 'ß',
@@ -97,8 +98,8 @@ class MarkdownPlus extends MarkdownExtra
         $options = kirby()->option('pgfactory.markdownplus');
         $this->divblockChars =      $options['divblockChars'] ?? '@%';
         $this->compileCodeBlocks =  $options['compileCodeBlocks'] ?? true;
-        $this->enableSmartypants =  $options['enableSmartypants'] ?? true;
         $this->enableIcons =        $options['enableIcons'] ?? true;
+        $this->enableSmartypants =  $options['smartypants'] ?? (kirby()->option('smartypants') ?: true);
 
         if ($this->enableIcons) {
             MdPlusHelper::findAvailableIcons();
@@ -868,9 +869,10 @@ EOT;
      *
      * Options:
      *      - any class, style etc. injection
-     *      - 'open'  -> to pre-open this accordion, e.g.
-     *
-     * <> SUMMARY {: open }
+     *      - '!open'  -> to pre-open this accordion
+     *      - '!frame' -> to draw a frame
+     * E.g.:
+     * <> SUMMARY {: !open !frame }
      * <>
      * @param string $line
      * @param array $lines
@@ -965,12 +967,30 @@ EOT;
         $mutex = (sizeof($blocks['accordion']) > 1);
         $wrapperClass = $mutex ? ' mdp-accordion-auto-close' : '';
         $n = self::$accordionInx++;
-
         foreach ($blocks['accordion'] as $block) {
             if ($accordionAttrs = $block['accordionAttrs']) {
+                // !open:
+                if ($open = str_contains($accordionAttrs, '!open')) {
+                    $accordionAttrs = str_replace('!open', '', $accordionAttrs);
+                }
+
+                // !frame:
+                if (preg_match('/!frame(=)?(\S*)/', $accordionAttrs, $m)) {
+                    if ($m[1]) {
+                        $accordionAttrs = str_replace($m[0], ".mdp-border --pfy-accordion-details-border-color:{$m[2]}", $accordionAttrs);
+                    } else {
+                        $accordionAttrs = str_replace('!frame', '.mdp-border', $accordionAttrs);
+                    }
+                }
+
+                // !bg:
+                if (preg_match('/!bg=(\S+)/', $accordionAttrs, $m)) {
+                    $accordionAttrs = str_replace($m[0], "--pfy-accordion-details-bg:{$m[1]}", $accordionAttrs);
+                }
+
                 $attrs = MdPlusHelper::parseInlineBlockArguments(".mdp-accordion .mdp-accordion-$n " . $accordionAttrs);
                 $attrsStr = $attrs['htmlAttrs'];
-                if (str_contains($attrs['text'], 'open')) {
+                if ($open) {
                     $attrsStr .= ' open';
                 }
             } else {
@@ -1617,9 +1637,7 @@ EOT;
         $str = $this->handleIncludes($str);
 
         // handle smartypants:
-        if (kirby()->option('smartypants')) {
-            $str = $this->smartypants($str);
-        }
+        $str = $this->smartypants($str);
 
         $str = $this->fixCebeBugs($str);
 

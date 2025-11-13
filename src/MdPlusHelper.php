@@ -291,6 +291,7 @@ class MdPlusHelper
         if (!$autoWrapUrls) {
             return $str;
         }
+        // e-mail addresses:
         if (preg_match_all("/[\w.'-]{1,50} @ [\w.'-]{1,30} \. \w{1,10} /xms", $str, $m)) {
             foreach ($m[0] as $i => $item) {
                 $url = $text = $item;
@@ -299,7 +300,10 @@ class MdPlusHelper
                 $item = self::shieldStr("<a href='$url'>$text</a>");
                 $str = str_replace($m[0][$i], $item, $str);
             }
-        } elseif (preg_match_all("|https?:// ([\w.'/-]{1,50} \. \w{1,10} [\w./-]{1,50}) |xms", $str, $m)) {
+        }
+
+        // URLs:
+        if (preg_match_all("|https?:// ([\w.'/-]{1,50} \. \w{1,10} [\w./-]{1,50}) |xms", $str, $m)) {
             foreach ($m[0] as $i => $item) {
                 $url = $item;
                 $url = str_replace('.', '&#46;', $url);

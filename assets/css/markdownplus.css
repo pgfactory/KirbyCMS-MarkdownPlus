@@ -3,11 +3,17 @@
 */
 
 /* === Accordion ============== */
-.mdp-accordion details,
-details.mdp-accordion {
-  outline: var(--pfy-accordion-details-border);
-  outline-offset: -1px;
-  overflow: clip;
+/* frame (aka .mdp-border): */
+details.mdp-accordion.mdp-border {
+  border: 1px solid var(--pfy-accordion-details-border-color, #ddd);
+}
+/* in case of multiple accordions: avoid double-border in between: */
+details.mdp-accordion.mdp-border:not(:first-child) {
+  border-top: none;
+}
+
+details.mdp-accordion.mdp-border .mdp-accordion-body {
+  padding: 0.5em;
 }
 .mdp-accordion details::details-content,
 details.mdp-accordion::details-content {

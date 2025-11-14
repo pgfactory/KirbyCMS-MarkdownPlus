@@ -8,7 +8,7 @@ details.mdp-accordion.mdp-border {
   border: 1px solid var(--pfy-accordion-details-border-color, #ddd);
 }
 /* in case of multiple accordions: avoid double-border in between: */
-details.mdp-accordion.mdp-border:not(:first-child) {
+details.mdp-accordion.mdp-border ~ .mdp-border {
   border-top: none;
 }
 

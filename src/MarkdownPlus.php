@@ -45,30 +45,28 @@ define('MDP_ABBREVIATIONS_FILE',    MDP_KIRBY_BASE_PATH . 'site/custom/variables
 define('MDP_SMARTYPANTS_FILE',      MDP_KIRBY_BASE_PATH . 'site/custom/variables/smartypants.txt');
 
 const MDP_SMARTYPANTS = [
-    '/(?<!-)->/ms'  => '&rarr;',
-    '/(?<!=)=>/ms'  => '&rArr;',
-    '/(?<!!)<-/ms'  => '&larr;',
-    '/(?<!=)<=/ms'  => '&lArr;',
-    '/(?<!\.)\.\.\.(?!\.)/ms'  => '&hellip;',
-    '/(?<!-|!)--(?!-|>)/ms'  => '&ndash;', // in particular: <!-- -->
-    '/(?<!-|\||\n)---(?!-)/ms'  => '&mdash;', // in particular |---
+    '/(?<!-)->/'  => '&rarr;',                  // ->  -> →
+    '/(?<!=)=>/'  => '&rArr;',                  // =>  -> ⇒
+    '/(?<!!)<-/'  => '&larr;',                  // <-  -> ←
+    '/(?<!=)<=/'  => '&lArr;',                  // <=  -> ⇐
+    '/(?<!\.)\.\.\.(?!\.)/'  => '&hellip;',     // ...  -> …
+    '/(?<!-|!)--(?!-|>)/'  => '&ndash;',        // --   -> –  (except <!-- --> )
+    '/(?<!-|\||\n)---(?!-)/'  => '&mdash;',     // ---  ->  — (except |--- and \n--- )
 
-// disabled due to conflict with 8em>> pattern
-//    '/(?<!<) \<{2}(\w) /xms'  => "&#171;$1", // <<C
-//    '/(\w) \>{2} (?!>)/xms'  => "$1&#187;",  // C>>
+    '/\bEURO\b/'  => '&euro;',                  // EURO  -> €
+    //'/sS/'  => 'ß',
+    '|c/o|ms'  => '&incare;',                   // c/o  -> ℅
+    '|1/4|ms'  => '&frac14;',                   // 1/4  -> ½
+    '|1/2|ms'  => '&frac12;',                   // 1/2  -> ¼
+    '|3/4|ms'  => '&frac34;',                   // 3/4  -> ¾
+    '|0/00|ms'  => '&permil;',                  // 0/00  -> ‰
 
-    '/\bEURO\b/ms'  => '&euro;',
-    //'/sS/ms'  => 'ß',
-    '|c/o|ms'  => '&incare;',
-    '|1/4|ms'  => '&frac14;',
-    '|1/2|ms'  => '&frac12;',
-    '|3/4|ms'  => '&frac34;',
-    '|0/00|ms'  => '&permil;',
-    '/(?<!,),,(?!,)/ms'  => '„',
-    "/(?<!')''(?!')/ms"  => '”',
-    "/(?<!`)``(?!`)/ms"  => '“',
-    "/(?<!~)~~(?!~)/ms"  => '≈',
-    '/\bINFINITY\b/ms'  => '∞',
+    // quotation marks -> use CSS to adapt to locale, e.g. "q { "«" "»" "‹" "›"; }"
+    "/(?<!') '{2}(\w) /xms"  => "<q>$1",        // ''C  -> <q>   -> «
+    "/(\w) '{2} (?!')/xms"  => "$1</q>",        // C'' -> </q>  -> »
+
+    "/(?<!~)~~(?!~)/"  => '≈',                  // ~~  -> ≈
+    '/\bINFINITY\b/'  => '∞',                   // INFINITY  -> ∞
 ];
 
 

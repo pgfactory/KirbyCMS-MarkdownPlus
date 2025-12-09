@@ -7,9 +7,8 @@ use Kirby\Data\Yaml as Yaml;
 use Kirby\Data\Json as Json;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
-use Kirby\Http\Url;
-use PgFactory\PageFactory\PageFactory;
-use function PgFactory\PageFactory\indentLines;
+use function PgFactory\PageFactory\explodeTrim;
+use function PgFactory\PageFactory\getFile;
 
 if (defined('PFY_DOCROOT') && defined('PFY_BASE_OFFSET')) {
     define('MDP_BASE_PATH',         PFY_DOCROOT . PFY_BASE_OFFSET);
@@ -31,6 +30,7 @@ class MdPlusHelper
     private static array $availableIcons = [];
     private static array $processedSvgIcons = [];
     private static string $bodyEndInjections = '';
+    private static array $smartypants = [];
 
 
     /**
@@ -1548,6 +1548,34 @@ EOT;
             return date('Y-m-d');
         }
     } // timestampStr
+
+
+    /**
+     * @param string $str
+     * @return string
+     */
+    public static function translateSmartypants(string $str): string
+    {
+        if (self::$smartypants) {
+            $smartypants = self::$smartypants;
+
+        } else {
+            // check for custom smartypants definitons:
+            if (file_exists(MDP_SMARTYPANTS_FILE)) {
+                $smartypants = [];
+                $lines = explodeTrim("\n", getFile(MDP_SMARTYPANTS_FILE, 'z,h'), true);
+                foreach ($lines as $line) {
+                    list($key, $value) = explode(': ', $line);
+                    $smartypants[$key] = $value;
+                }
+                self::$smartypants = $smartypants;
+            } else {
+                self::$smartypants = $smartypants = MDP_SMARTYPANTS;
+            }
+        }
+        return preg_replace(array_keys($smartypants), array_values($smartypants), $str);
+    } // translateSmartypants
+
 
 
 } // MdPlusHelper

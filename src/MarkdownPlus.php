@@ -2,8 +2,6 @@
 namespace PgFactory\MarkdownPlus;
 
 use cebe\markdown\MarkdownExtra;
-use DOMDocument;
-use DOMXPath;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
 use PgFactory\PageFactory\Macros;
@@ -50,8 +48,7 @@ const MDP_SMARTYPANTS = [
     '/(?<!!)<-/'  => '&larr;',                  // <-  -> ←
     '/(?<!=)<=/'  => '&lArr;',                  // <=  -> ⇐
     '/(?<!\.)\.\.\.(?!\.)/'  => '&hellip;',     // ...  -> …
-    '/(?<!-|!)--(?!-|>)/'  => '&ndash;',        // --   -> –  (except <!-- --> )
-    '/(?<!-|\||\n)---(?!-)/'  => '&mdash;',     // ---  ->  — (except |--- and \n--- )
+    '/(?<!-|!)--(?!-|>)/'  => '–',        // --   -> –  (except <!-- --> )
 
     '/\bEURO\b/'  => '&euro;',                  // EURO  -> €
     //'/sS/'  => 'ß',
@@ -1712,26 +1709,7 @@ EOT;
         if (!$this->enableSmartypants) {
             return $str;
         }
-
-        // check for custom smartypants definitons:
-        if (self::$smartypants) {
-            $smartypants = self::$smartypants;
-
-        } else {
-            if (file_exists(MDP_SMARTYPANTS_FILE)) {
-                $smartypants = [];
-                $lines = explodeTrim("\n", getFile(MDP_SMARTYPANTS_FILE, 'z,h'), true);
-                foreach ($lines as $line) {
-                    list($key, $value) = explode(': ', $line);
-                    $smartypants[$key] = $value;
-                }
-                self::$smartypants = $smartypants;
-            } else {
-                $smartypants = MDP_SMARTYPANTS;
-            }
-        }
-
-        return preg_replace(array_keys($smartypants), array_values($smartypants), $str);
+        return MdPlusHelper::translateSmartypants($str);
     } // smartypants
 
 

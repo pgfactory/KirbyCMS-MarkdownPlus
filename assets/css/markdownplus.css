@@ -71,6 +71,7 @@ details.mdp-accordion.right > summary > span {
 }
 .mdp-accordion-body {
   overflow: hidden; /* avoid margin collapse */
+  padding-bottom: 0.5em;
 }
 .mdp-accordion-body > ul,
 .mdp-accordion-body > ol {

@@ -138,7 +138,7 @@ class Permission
         foreach (kirby()->users() as $user) {
             $role  = strtolower($user->role()->name());
             if ($role === 'admin') {
-                self::mylog("AccessCode '$submittedAccessCode' belongs to an admin, therefore denied.", 'login-log.txt');
+                //self::mylog("AccessCode '$submittedAccessCode' belongs to an admin, therefore denied.", 'login-log.txt');
                 continue;
             }
             $name = $user->nameOrEmail()->value();

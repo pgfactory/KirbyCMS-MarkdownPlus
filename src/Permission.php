@@ -353,10 +353,16 @@ class Permission
         if (!\Kirby\Toolkit\V::filename($filename)) {
             return;
         }
-        if (!file_exists(MDP_LOG_PATH)) {
-            mkdir(MDP_LOG_PATH, recursive: true);
+        $logPath = MDP_BASE_PATH;
+
+        // handle special case: webapp is running in root folder, actual app is in subfolder PFY_BASE_OFFSET:
+        if (defined('PFY_BASE_OFFSET')) {
+            $logPath .= PFY_BASE_OFFSET;
         }
-        $logFile = MDP_LOG_PATH. $filename;
+        if (!file_exists($logPath)) {
+            mkdir($logPath, recursive: true);
+        }
+        $logFile = $logPath. $filename;
 
         $str = date('Y-m-d H:i:s')."  $str\n\n";
         if (file_put_contents($logFile, $str, FILE_APPEND) === false) {

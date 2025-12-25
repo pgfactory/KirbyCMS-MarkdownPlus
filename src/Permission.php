@@ -138,7 +138,7 @@ class Permission
         foreach (kirby()->users() as $user) {
             $role  = strtolower($user->role()->name());
             if ($role === 'admin') {
-                //self::mylog("AccessCode '$submittedAccessCode' belongs to an admin, therefore denied.", 'login-log.txt');
+                //self::mylog("AccessCode '$submittedAccessCode' belongs to an admin, therefore denied.", PFY_LOGIN_LOG_FILE);
                 continue;
             }
             $name = $user->nameOrEmail()->value();
@@ -149,7 +149,7 @@ class Permission
                 self::impersonateUser($email);
                 $session->set('pfy.message', 'You are logged in now as '.$name);
                 $session->set('pfy.accessCodeUser', $email);
-                self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page'", 'login-log.txt');
+                self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page'", PFY_LOGIN_LOG_FILE);
                 return $user;
             }
         }
@@ -161,10 +161,10 @@ class Permission
         // check whether given code has been defined:
         if (is_array($pageAccessCodes) && in_array($submittedAccessCode, $pageAccessCodes)) {
             self::$anonAccess[$page] = true;
-            self::mylog("AccessCode '$submittedAccessCode' validated on page '$page'", 'login-log.txt');
+            self::mylog("AccessCode '$submittedAccessCode' validated on page '$page'", PFY_LOGIN_LOG_FILE);
             return 'anon';
         } elseif (PageFactory::$dev??false) {
-                self::mylog("Invalid AccessCode '$submittedAccessCode' received for page '$page'", 'login-log.txt');
+                self::mylog("Invalid AccessCode '$submittedAccessCode' received for page '$page'", PFY_LOGIN_LOG_FILE);
         }
         return false;
     } // checkPageAccessCode

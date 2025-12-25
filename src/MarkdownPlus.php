@@ -38,6 +38,9 @@ const MDP_KIRBYTAG_PATTERNS = [
 ];
 define('MDP_KIRBY_BASE_PATH',       dirname($_SERVER['SCRIPT_FILENAME']) . '/');
 
+if (!defined('PFY_LOGIN_LOG_FILE')) {
+    define('PFY_LOGIN_LOG_FILE', 'login-log.txt');
+}
 
 define('MDP_ABBREVIATIONS_FILE',    MDP_KIRBY_BASE_PATH . 'site/custom/variables/abbreviations.txt');
 define('MDP_SMARTYPANTS_FILE',      MDP_KIRBY_BASE_PATH . 'site/custom/variables/smartypants.txt');

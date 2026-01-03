@@ -146,11 +146,10 @@ class Permission
             if ($submittedAccessCode === $accessCode) {
                 // match found -> log in
                 $email = $user->email();
-                self::impersonateUser($email);
-                $session->set('pfy.message', 'You are logged in now as '.$name);
+                $message = 'You are logged in now as '.$name;
                 $session->set('pfy.accessCodeUser', $email);
                 self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page'", PFY_LOGIN_LOG_FILE);
-                return $user;
+                self::reloadAgent(message: $message);
             }
         }
 
@@ -366,6 +365,27 @@ class Permission
             throw new \Exception("Writing to file '$logFile' failed");
         }
     } // mylog
+
+
+    /**
+     * Forces the browser to reload.
+     * If running in a PageFactory context, the message is stored in session and displayed on reload.
+     * @param mixed $target
+     * @param mixed $message
+     * @return void
+     */
+    private static function reloadAgent(mixed $target = '', mixed $message = ''): void
+    {
+        if (!$target) {
+            $target = page()->url();
+        }
+        if (is_string($message) && $message) {
+            $session = kirby()->session();
+            $session->set('pfy.message', $message);
+        }
+        header("Location: $target");
+        exit;
+    } // reloadAgent
 
 } // Permission
 

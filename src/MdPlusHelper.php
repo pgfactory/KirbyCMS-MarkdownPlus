@@ -10,8 +10,8 @@ use Kirby\Exception\InvalidArgumentException;
 use function PgFactory\PageFactory\explodeTrim;
 use function PgFactory\PageFactory\getFile;
 
-if (defined('PFY_DOCROOT') && defined('PFY_BASE_OFFSET')) {
-    define('MDP_BASE_PATH',         PFY_DOCROOT . PFY_BASE_OFFSET);
+if (defined('PFY_KIRBY_BASE_PATH')) {
+    define('MDP_BASE_PATH',         PFY_KIRBY_BASE_PATH);
 } else {
     define('MDP_BASE_PATH',         dirname($_SERVER['SCRIPT_FILENAME']) . '/');
 }

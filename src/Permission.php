@@ -353,12 +353,9 @@ class Permission
         if (!\Kirby\Toolkit\V::filename($filename)) {
             return;
         }
-        $logPath = MDP_BASE_PATH;
+        $logPath = MDP_BASE_PATH . 'site/logs/';
 
         // handle special case: webapp is running in root folder, actual app is in subfolder PFY_BASE_OFFSET:
-        if (defined('PFY_BASE_OFFSET')) {
-            $logPath .= PFY_BASE_OFFSET;
-        }
         if (!file_exists($logPath)) {
             mkdir($logPath, recursive: true);
         }

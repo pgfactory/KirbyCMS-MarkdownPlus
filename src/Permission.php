@@ -42,11 +42,16 @@ class Permission
         $permissionQueryStr = str_replace(' ', '', strtolower($permissionQuery));
 
         // handle special option 'localhost' -> take session var into account:
-        session_start();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+            $terminateSession = true;
+        }
         if (($_SESSION['pfy.dev']??null) === false) { // dev explicitly false
             $allowOnLocalhost = false;
         }
-        session_abort();
+        if ($terminateSession??false) {
+            session_abort();
+        }
         if (str_contains($permissionQuery, 'localhost')) {
             if (self::isLocalhost() && $allowOnLocalhost) {
                 return true;
@@ -259,10 +264,8 @@ class Permission
         }
 
         if (session_status() === PHP_SESSION_NONE) {
-            $doTerminateSession = true;
+            $terminateSession = true;
             session_start();
-        } else {
-            $doTerminateSession = false;
         }
 
         if (isset($_GET['localhost'])) {
@@ -282,7 +285,7 @@ class Permission
         } else {
             // no request, check session var:
             $isLocalhost = !($_SESSION['pfy.notLocalhost']??false);
-            if ($doTerminateSession) {
+            if ($terminateSession??false) {
                 session_abort();
             }
             self::$isLocalhost = $isLocalhost;

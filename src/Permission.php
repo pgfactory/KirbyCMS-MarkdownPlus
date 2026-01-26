@@ -41,17 +41,6 @@ class Permission
 
         $permissionQueryStr = str_replace(' ', '', strtolower($permissionQuery));
 
-        // handle special option 'localhost' -> take session var into account:
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-            $terminateSession = true;
-        }
-        if (($_SESSION['pfy.dev']??null) === false) { // dev explicitly false
-            $allowOnLocalhost = false;
-        }
-        if ($terminateSession??false) {
-            session_abort();
-        }
         if (str_contains($permissionQuery, 'localhost')) {
             if (self::isLocalhost() && $allowOnLocalhost) {
                 return true;
@@ -263,31 +252,21 @@ class Permission
             return false;
         }
 
-        if (session_status() === PHP_SESSION_NONE) {
-            $terminateSession = true;
-            session_start();
-        }
-
         if (isset($_GET['localhost'])) {
             // there is a url-command ?localhost:
             $localhostRequest = $_GET['localhost'];
             if ($localhostRequest === 'false') { // allows to suppress localhost state
-                $_SESSION['pfy.notLocalhost'] = true;
-                session_write_close();
+                kirby()->session()->set('pfy.notLocalhost', true);
                 return false;
             } else {
                 // in any other case, reset session var:
-                unset($_SESSION['pfy.notLocalhost']);
-                session_write_close();
+                kirby()->session()->remove('pfy.notLocalhost');
                 reloadAgent();
                 return true;
             }
         } else {
             // no request, check session var:
-            $isLocalhost = !($_SESSION['pfy.notLocalhost']??false);
-            if ($terminateSession??false) {
-                session_abort();
-            }
+            $isLocalhost = !kirby()->session()->get('pfy.notLocalhost');
             self::$isLocalhost = $isLocalhost;
             return $isLocalhost;
         }

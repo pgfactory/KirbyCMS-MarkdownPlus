@@ -257,6 +257,7 @@ class Permission
             $localhostRequest = $_GET['localhost'];
             if ($localhostRequest === 'false') { // allows to suppress localhost state
                 kirby()->session()->set('pfy.notLocalhost', true);
+                self::$isLocalhost = false;
                 return false;
             } else {
                 // in any other case, reset session var:

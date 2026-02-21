@@ -974,7 +974,7 @@ EOT;
 
                 // !frame:
                 if (preg_match('/!frame(=)?(\S*)/', $accordionAttrs, $m)) {
-                    if ($m[1]) {
+                    if ($m[1] && (($m[2]??false) !== 'true')) {
                         $accordionAttrs = str_replace($m[0], ".mdp-border --pfy-accordion-details-border-color:{$m[2]}", $accordionAttrs);
                     } else {
                         $accordionAttrs = str_replace('!frame', '.mdp-border', $accordionAttrs);

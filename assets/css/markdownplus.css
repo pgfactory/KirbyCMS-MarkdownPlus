@@ -19,6 +19,10 @@ details.mdp-accordion.mdp-border .mdp-accordion-body {
 details.mdp-accordion::details-content {
   padding: 0 1em;
 }
+.mdp-accordion details,
+details.mdp-accordion {
+  margin-bottom: 0.5em;
+}
 .mdp-accordion details[open],
 details.mdp-accordion[open] {
   background: var(--pfy-accordion-details-bg);

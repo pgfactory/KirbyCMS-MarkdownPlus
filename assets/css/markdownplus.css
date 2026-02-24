@@ -3,15 +3,27 @@
 */
 
 /* === Accordion ============== */
+details.mdp-accordion summary:has(> span:empty) {
+  display: none;
+}
+
 /* frame (aka .mdp-border): */
+details.mdp-accordion:has([data-frame]),
 details.mdp-accordion.mdp-border {
   border: 1px solid var(--pfy-accordion-details-border-color, #ddd);
 }
-/* in case of multiple accordions: avoid double-border in between: */
-details.mdp-accordion.mdp-border ~ .mdp-border {
-  border-top: none;
+
+details.mdp-accordion:has( summary > span:empty):has([data-frame]):not([open]) {
+  border: none;
 }
 
+
+.mdp-accordion:has([data-frame]) .mdp-accordion-body,
+.mdp-accordion.mdp-border .mdp-accordion-body {
+  border-top: 1px solid #f3f4f6;
+}
+
+details.mdp-accordion:has([data-frame]) .mdp-accordion-body,
 details.mdp-accordion.mdp-border .mdp-accordion-body {
   padding: 0.5em;
 }
@@ -29,7 +41,8 @@ details.mdp-accordion[open] {
 }
 .mdp-accordion details[open] > summary:before,
 details.mdp-accordion[open] > summary:before {
-  transform: rotate(90deg);
+  content: attr(data-icon-closed, "▷");
+  transform: rotate(var(--pfy-icon-rotation-open, 90deg));
 }
 .mdp-accordion details > summary,
 details.mdp-accordion > summary {
@@ -56,7 +69,8 @@ details.mdp-accordion > summary::-webkit-details-marker {
 
 .mdp-accordion details > summary:before,
 details.mdp-accordion > summary:before {
-  content: "▷";
+  content: attr(data-icon-open, "▷");
+  transform: rotate(var(--pfy-icon-rotation, 0deg));
   font-family: sans-serif;
   float: left;
   line-height: 1em;
@@ -82,7 +96,23 @@ details.mdp-accordion.right > summary > span {
   margin-top: 0;
   margin-bottom: 0;
 }
+.pfy-accordion-shadow[open] summary{
+  box-shadow: 0 5px 5px -5px rgb(0 0 0 / 75%);
+}
 
+.mdp-accordion-group details.mdp-accordion {
+  margin-bottom: 0;
+}
+/* in case of multiple accordions: avoid double-border in between: */
+.mdp-accordion-group .mdp-accordion.mdp-border {
+  border-top: none;
+}
+.mdp-accordion-group .mdp-accordion.mdp-border:first-child {
+  border-top: 1px solid var(--pfy-accordion-details-border-color, #ddd);
+}
+.mdp-accordion-group {
+  margin-bottom: 0.5em;
+}
 
 
 @supports selector(::details-content) {

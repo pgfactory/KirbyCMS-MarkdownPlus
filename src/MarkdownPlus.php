@@ -371,9 +371,11 @@ class MarkdownPlus extends MarkdownExtra
         // if a line starts with at least 3 marker-chars it is identified as a div-block
         // fence chars e.g. ':$@' -> defined in PageFactory::$config['divblockChars']
         $marker = $line[0]??' ';
-        if (str_contains($this->divblockChars, $marker) &&
-                preg_match("/^$marker{3,10}\s+\S/", $line)) {
-            return true;
+        if (str_contains($this->divblockChars, $marker)) {
+            $qMarker = preg_quote($marker, '/');
+            if (preg_match("/^$qMarker{3,10}\s+\S/", $line)) {
+                return true;
+            }
         }
         return false;
     } // identifyDivBlock
@@ -400,7 +402,7 @@ class MarkdownPlus extends MarkdownExtra
         // detect class or id and fence length (can be more than 3 backticks)
         $depth = 0;
         $marker = $block['marker'];
-        $pattern = preg_quote($marker).'{3,10}';
+        $pattern = preg_quote($marker, '/').'{3,10}';
         if (preg_match("/($pattern)(.*)/",$line, $m)) {
             $fence = $m[1];
             $rest = trim($m[2]);
@@ -487,8 +489,9 @@ class MarkdownPlus extends MarkdownExtra
         foreach ($lines as $line) {
             if ($block === false) {
                 $marker = $line[0]??' ';
+                $qMarker = preg_quote($marker, '/');
                 if (str_contains($this->divblockChars, $marker) &&
-                    preg_match("/^$marker{3,10}(.*)/", $line, $m)) {
+                    preg_match("/^$qMarker{3,10}(.*)/", $line, $m)) {
                     $fence = $m[1];
                     $l = strlen($fence);
                     $block = '';
@@ -721,11 +724,9 @@ class MarkdownPlus extends MarkdownExtra
             }
         }
         // remove empty panels elements:
-        for ($p=0; $p < sizeof($block['panels']); $p++) {
-            if (!trim($block['panels'][$p]['title'])) {
-                unset($block['panels'][$p]);
-            }
-        }
+        $block['panels'] = array_values(array_filter($block['panels'], function ($item) {
+            return trim($item['title']) !== '';
+        }));
         return [$block, $i];
     } // consumeSlidingPanels
 
@@ -945,11 +946,9 @@ EOT;
             }
         }
         // remove empty accordion elements:
-        for ($p=0; $p < sizeof($block['accordion']); $p++) {
-            if (!trim($block['accordion'][$p]['summary'])) {
-                unset($block['accordion'][$p]);
-            }
-        }
+        $block['accordion'] = array_values(array_filter($block['accordion'], function ($item) {
+            return trim($item['summary']) !== '';
+        }));
         return [$block, $i];
     } // consumeAccordion
 
@@ -982,7 +981,7 @@ EOT;
                     // !frame:
                     if (preg_match('/!frame(=)?(\S*)/', $accordionAttrs, $m)) {
                         if ($m[1] && (($m[2] ?? false) !== 'true')) {
-                            $accordionAttrs = str_replace($m[0], ".mdp-border --pfy-accordion-details-border-color:{$m[2]}", $accordionAttrs);
+                            $accordionAttrs = str_replace($m[0], ".mdp-border --mdp-accordion-details-border-color:{$m[2]}", $accordionAttrs);
                         } else {
                             $accordionAttrs = str_replace('!frame', '.mdp-border', $accordionAttrs);
                         }
@@ -990,13 +989,14 @@ EOT;
 
                     // !bg:
                     if (preg_match('/!bg=(\S+)/', $accordionAttrs, $m)) {
-                        $accordionAttrs = str_replace($m[0], "--pfy-accordion-details-bg:{$m[1]}", $accordionAttrs);
+                        $accordionAttrs = str_replace($m[0], "--mdp-accordion-details-bg:{$m[1]}", $accordionAttrs);
                     }
 
                     $attrs = MdPlusHelper::parseInlineBlockArguments(".mdp-accordion .mdp-accordion-$n " . $accordionAttrs);
                     $attrsStr = $attrs['htmlAttrs'];
                     if ($open) {
                         $attrsStr .= ' open';
+                        $open = ''; // already included in $attrsStr, avoid duplication
                     }
                 }
             } else {
@@ -1157,6 +1157,7 @@ EOT;
         ];
 
         // consume all lines until 2 empty line
+        $checked = false;
         for($i = $current, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
             if (!preg_match('/^-?\[.?]\s+/', $line)) {  // empty line
@@ -1189,7 +1190,7 @@ EOT;
                 $out .= "<li$checked>$line</li>\n";
             }
         }
-        $out = "<ul class='pfy-todo-list'>\n$out</ul>\n";
+        $out = "<ul class='mdp-todo-list'>\n$out</ul>\n";
         return $out;
     } // renderToDoList
 
@@ -1505,7 +1506,7 @@ EOT;
         if (preg_match('/^ (["\']) (.+) \1 \s* /x', $src, $m)) {
             $src = $m[2];
         }
-        $alt = str_replace(['"', "'"], ['&quot;','&apos;'], $alt);
+        $alt = htmlspecialchars($alt, ENT_QUOTES, 'UTF-8');
 
         $caption = '';
         if (preg_match('/^ (.*?) \s+ (.*) /x', $src, $m)) {
@@ -1517,20 +1518,23 @@ EOT;
             if (preg_match('/^ (["\']) (.+) \1 \s* /x', $caption, $mm)) {
                 $caption = $mm[2];
             }
-            $caption = str_replace(['"', "'"], ['&quot;','&apos;'], $caption);
         }
 
         if (!str_contains($src, '/')) {
-            $src = page()->file($src)->url();
+            $file = page() ? page()->file($src) : null;
+            $src = $file ? $file->url() : $src;
         }
 
         $attr = "src:'$src', alt:'$alt', caption:'$caption'";
         if (function_exists('PgFactory\\MarkdownPlus\\img')) {
             $str = $this->processByMacro('img', $attr);
         } elseif ($caption) {
+            $src = htmlspecialchars($src, ENT_QUOTES, 'UTF-8');
+            $caption = htmlspecialchars($caption, ENT_QUOTES, 'UTF-8');
             $str = "<img src='$src' alt='$alt'>";
             $str = "<figure>$str<figcaption>$caption</figcaption></figure>";
         } else {
+            $src = htmlspecialchars($src, ENT_QUOTES, 'UTF-8');
             $str = "<img src='$src' alt='$alt'>";
         }
         return $str;
@@ -1580,7 +1584,8 @@ EOT;
             $attr .= "title:$q$title$q";
             $str = $this->processByMacro('link', $attr);
         } else {
-            $title = $title ? " title='$title'" : '';
+            $link = htmlspecialchars($link, ENT_QUOTES, 'UTF-8');
+            $title = $title ? " title='" . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . "'" : '';
             $str = "<a href='$link'$title>$linkText</a>";
         }
         return $str;
@@ -2017,6 +2022,11 @@ EOT;
      */
     private function renderIframe(string $files): string
     {
+        // only allow http(s) URLs to prevent javascript: or data: injection
+        if (!preg_match('#^https?://#i', $files)) {
+            return '';
+        }
+        $files = htmlspecialchars($files, ENT_QUOTES, 'UTF-8');
         $str = <<<EOT
 
 <iframe src='$files' class="mdp-iframe"></iframe>
@@ -2180,7 +2190,7 @@ EOT;
             if (str_contains($key, 'css')) {
                 $value = $this->handleSectionRefs($value);
             }
-            if (isset(page()->$key()->value)) {
+            if (page() && method_exists(page(), $key) && isset(page()->$key()->value)) {
                 page()->$key()->value .= $value;
             }
             $str = $m[3];

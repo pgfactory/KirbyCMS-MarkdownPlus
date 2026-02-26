@@ -10,7 +10,7 @@ details.mdp-accordion summary:has(> span:empty) {
 /* frame (aka .mdp-border): */
 details.mdp-accordion:has([data-frame]),
 details.mdp-accordion.mdp-border {
-  border: 1px solid var(--pfy-accordion-details-border-color, #ddd);
+  border: 1px solid var(--mdp-accordion-details-border-color, #ddd);
 }
 
 details.mdp-accordion:has( summary > span:empty):has([data-frame]):not([open]) {
@@ -20,16 +20,13 @@ details.mdp-accordion:has( summary > span:empty):has([data-frame]):not([open]) {
 
 .mdp-accordion:has([data-frame]) .mdp-accordion-body,
 .mdp-accordion.mdp-border .mdp-accordion-body {
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--mdp-accordion-border-top-color, #f3f4f6);
+  /* border-top: 1px solid #f3f4f6; */
 }
 
 details.mdp-accordion:has([data-frame]) .mdp-accordion-body,
 details.mdp-accordion.mdp-border .mdp-accordion-body {
   padding: 0.5em;
-}
-.mdp-accordion details::details-content,
-details.mdp-accordion::details-content {
-  padding: 0 1em;
 }
 .mdp-accordion details,
 details.mdp-accordion {
@@ -37,17 +34,17 @@ details.mdp-accordion {
 }
 .mdp-accordion details[open],
 details.mdp-accordion[open] {
-  background: var(--pfy-accordion-details-bg);
+  background: var(--mdp-accordion-details-bg);
 }
 .mdp-accordion details[open] > summary:before,
 details.mdp-accordion[open] > summary:before {
   content: attr(data-icon-closed, "▷");
-  transform: rotate(var(--pfy-icon-rotation-open, 90deg));
+  transform: rotate(var(--mdp-icon-rotation-open, 90deg));
 }
 .mdp-accordion details > summary,
 details.mdp-accordion > summary {
-  background: var(--pfy-accordion-summary-bg, var(--pfy-accordion-details-bg));
-  border-bottom: var(--pfy-accordion-details-border);
+  background: var(--mdp-accordion-summary-bg, var(--mdp-accordion-details-bg));
+  border-bottom: var(--mdp-accordion-details-border);
   padding: 0.4em 0.2em;
   cursor: pointer;
   list-style: none; /* for Safari */
@@ -70,7 +67,7 @@ details.mdp-accordion > summary::-webkit-details-marker {
 .mdp-accordion details > summary:before,
 details.mdp-accordion > summary:before {
   content: attr(data-icon-open, "▷");
-  transform: rotate(var(--pfy-icon-rotation, 0deg));
+  transform: rotate(var(--mdp-icon-rotation, 0deg));
   font-family: sans-serif;
   float: left;
   line-height: 1em;
@@ -96,7 +93,7 @@ details.mdp-accordion.right > summary > span {
   margin-top: 0;
   margin-bottom: 0;
 }
-.pfy-accordion-shadow[open] summary{
+.mdp-accordion-shadow[open] summary{
   box-shadow: 0 5px 5px -5px rgb(0 0 0 / 75%);
 }
 
@@ -108,7 +105,7 @@ details.mdp-accordion.right > summary > span {
   border-top: none;
 }
 .mdp-accordion-group .mdp-accordion.mdp-border:first-child {
-  border-top: 1px solid var(--pfy-accordion-details-border-color, #ddd);
+  border-top: 1px solid var(--mdp-accordion-details-border-color, #ddd);
 }
 .mdp-accordion-group {
   margin-bottom: 0.5em;
@@ -118,12 +115,12 @@ details.mdp-accordion.right > summary > span {
 @supports selector(::details-content) {
   .mdp-accordion details::details-content,
   details.mdp-accordion::details-content {
-    padding: 0 var(--pfy-accordion-details-padding, 0);
+    padding: 0 var(--mdp-accordion-details-padding, 0);
   }
 
   .mdp-accordion details[open]::details-content,
   details.mdp-accordion[open]::details-content {
-    padding: var(--pfy-accordion-details-padding, 0);
+    padding: var(--mdp-accordion-details-padding, 0);
     height: auto;
   }
 
@@ -132,7 +129,7 @@ details.mdp-accordion.right > summary > span {
     transition: padding 0.2s ease, height 0.2s ease, content-visibility 0.2s ease allow-discrete;
     height: 0;
     overflow: clip;
-    background: var(--pfy-accordion-details-bg);
+    background: var(--mdp-accordion-details-bg);
   }
 } /* @supports */
 
@@ -154,19 +151,19 @@ details.mdp-accordion.right > summary > span {
 
 
 /* === ToDo Lists ====================== */
-.pfy-default-styling .pfy-todo-list li {
+.mdp-todo-list li {
   list-style-type: " ";
   position: relative;
   padding-left: 0.4em;
   user-select: none;
 }
-.pfy-default-styling .pfy-todo-list li::marker {
+.mdp-todo-list li::marker {
   font-size: 1.3em;
 }
-.pfy-default-styling .pfy-todo-list li.checked {
+.mdp-todo-list li.checked {
   list-style-type: "✓";
 }
-.pfy-default-styling .pfy-todo-list li::before {
+.mdp-todo-list li::before {
   content: " ";
   border: 1px solid currentColor;
   border-radius: 50%;
@@ -180,27 +177,27 @@ details.mdp-accordion.right > summary > span {
 
 
 /* === Sliding Panels ================== */
-.pfy-default-styling .mdp-panels-wrapper {
+.mdp-panels-wrapper {
   --mdp-panels-width: calc(100vw - 2 * var(--mdp-page-padding, 4vw));
   width: var(--mdp-panels-width);
   overflow: hidden;
 }
-.pfy-default-styling .mdp-panels-wrapper > div {
+.mdp-panels-wrapper > div {
   width: 10000vw;
 }
-.pfy-default-styling .mdp-panels-wrapper > div > div:first-child button.mdp-panel-arrow-prev {
+.mdp-panels-wrapper > div > div:first-child button.mdp-panel-arrow-prev {
   width: 0;
   padding: 0;
   border: none;
   overflow: hidden;
 }
-.pfy-default-styling .mdp-panels-wrapper > div > div:last-child button.mdp-panel-arrow-next {
+.mdp-panels-wrapper > div > div:last-child button.mdp-panel-arrow-next {
   width: 0;
   padding: 0;
   border: none;
   overflow: hidden;
 }
-.pfy-default-styling .mdp-panel {
+.mdp-panel {
   display: inline-block;
   vertical-align: top;
   width: 0;
@@ -208,17 +205,17 @@ details.mdp-accordion.right > summary > span {
   overflow: hidden;
   margin-top: -1px;
 }
-.pfy-default-styling .mdp-panel.mdp-panel-open {
+.mdp-panel.mdp-panel-open {
   width: var(--mdp-panels-width);
 }
-.pfy-default-styling .mdp-panel > div {
+.mdp-panel > div {
   width: var(--mdp-panels-width);
 }
-.pfy-default-styling .mdp-panel-arrows {
+.mdp-panel-arrows {
   display: flex;
   justify-content: space-between;
 }
-.pfy-default-styling .mdp-panel-arrows button {
+.mdp-panel-arrows button {
   background: transparent;
   border: none;
 }
@@ -305,16 +302,6 @@ details.mdp-accordion.right > summary > span {
  *  --mdp-icon-angle
  */
 
-/*body {*/
-/*  --mdp-icon-size: 3.0em;*/
-/*  --mdp-icon-angle: 0deg;*/
-/*  font-size: 3em;*/
-/*}*/
-/*.mdp-icon { background: yellow;}*/
-/*.mdp-icon > * { background: #eeffee88;}*/
-
-
-/*.mdp-link-icon,*/
 .mdp-icon {
   position: relative;
   display: inline-block;
@@ -335,25 +322,3 @@ a .mdp-icon {
   transform-origin: center;
 }
 
-/* list of icons, i.e. output of ListIcons():
-.mdp-icon-row.mdp-icon-row {
-  display: inline-block;
-  margin-right: 2em;
-}
-.mdp-icon-row.mdp-icon-row span {
-  display: inline-block;
-}
-
-.mdp-icon-row.mdp-icon-row .mdp-icon-label {
-  width: 12em;
-}
-
-.mdp-icon {
-  color: red;
-}
-
-.mdp-icon-sample {
-  color: #bbb;
-}
-
-*/

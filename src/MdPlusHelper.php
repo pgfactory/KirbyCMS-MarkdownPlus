@@ -160,7 +160,7 @@ class MdPlusHelper
         }
 
         if ($title) {
-            $title = " title='$title'";
+            $title = " title='" . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . "'";
         }
         $iconFile = self::$availableIcons[$iconName] ?? false;
         if (!$iconFile || !file_exists($iconFile)) {
@@ -1009,7 +1009,7 @@ EOT;
             }
             if ($tFiles < $tCache) {
                 $raw = file_get_contents($cacheFile);
-                return unserialize($raw);
+                return json_decode($raw, true);
             }
 
         } else {
@@ -1019,7 +1019,7 @@ EOT;
                 $tCache = self::fileTime($cacheFile);
                 if ($tFile < $tCache) {
                     $raw = file_get_contents($cacheFile);
-                    return unserialize($raw);
+                    return json_decode($raw, true);
                 }
             }
         }
@@ -1036,7 +1036,7 @@ EOT;
      */
     private static function updateDataCache(string $file, mixed $data, string $tag = ''): void
     {
-        $raw = serialize($data);
+        $raw = json_encode($data, JSON_UNESCAPED_UNICODE);
         $cacheFile = self::cacheFileName($file, $tag);
         self::preparePath($cacheFile);
         file_put_contents($cacheFile, $raw);

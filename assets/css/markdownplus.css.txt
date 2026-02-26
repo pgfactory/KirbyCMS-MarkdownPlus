@@ -1,0 +1,37 @@
+/*
+  Markdown Plus Styling
+*/
+
+
+body {
+ --mdp-icon-size: 3.0em;*/
+ --mdp-icon-angle: 0deg;
+ font-size: 3em;
+}
+.mdp-icon { background: yellow;}
+.mdp-icon > * { background: #eeffee88;}
+
+
+
+/* list of icons, i.e. output of ListIcons(): */
+.mdp-icon-row.mdp-icon-row {
+  display: inline-block;
+  margin-right: 2em;
+}
+.mdp-icon-row.mdp-icon-row span {
+  display: inline-block;
+}
+
+.mdp-icon-row.mdp-icon-row .mdp-icon-label {
+  width: 12em;
+}
+
+.mdp-icon {
+  color: red;
+}
+
+.mdp-icon-sample {
+  color: #bbb;
+}
+
+

@@ -69,7 +69,7 @@ class Permission
                 return true;
             }
 
-            if ($permissionQuery === 'notloggedin' || $permissionQuery === 'anon,') {
+            if ($permissionQuery === 'notloggedin' || $permissionQuery === 'anon') {
                 $admission |= !$loggedIn;
 
             } elseif ($permissionQuery === 'loggedin') {
@@ -106,7 +106,7 @@ class Permission
     public static function checkPageAccessCode(): mixed
     {
         $session = kirby()->session();
-        $page = page()->id();
+        $page = page() ? page()->id() : '';
         $accessCodeKey = kirby()->option('pgfactory.markdownplus.accessCodeKey', 'a');
 
         // check whether there is an access code in url-args:
@@ -148,6 +148,9 @@ class Permission
         }
 
         // try to get "accessCode:" resp. "accessCodes:" from page (i.e. meta-file):
+        if (!page()) {
+            return false;
+        }
         $pageAccessCodes = page()->accesscodes()->value() ?: page()->accesscode()->value();
         $pageAccessCodes = Data::decode($pageAccessCodes, 'YAML');
 

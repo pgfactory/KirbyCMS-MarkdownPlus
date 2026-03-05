@@ -167,11 +167,11 @@ details.mdp-accordion.right > summary > span {
   content: " ";
   border: 1px solid currentColor;
   border-radius: 50%;
-  width: 1.1em;
-  height: 1.1em;
+  width: 1em;
+  height: 1em;
   position: absolute;
   top: 0.2em;
-  left: -1.2em;
+  left: -1.4em;
 }
 
 

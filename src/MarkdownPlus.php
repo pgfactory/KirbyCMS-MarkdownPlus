@@ -21,8 +21,8 @@ include_once __DIR__ . '/MdPlusHelper.php';
 
  // HTML tags that must not have a closing tag:
 const MDP_HTML_SINGLETON_TAGS =   'img,input,br,hr,meta,embed,link,source,track,wbr,col,area';
-const MDP_INLINE_ELEMENTS = "a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,map,object,'.
-'output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,";
+const MDP_INLINE_ELEMENTS = 'a,abbr,acronym,b,bdo,big,br,button,cite,code,dfn,em,i,img,input,kbd,label,map,object,' .
+    'output,q,samp,script,select,small,span,strong,sub,sup,textarea,time,tt,var,skip,';
   // 'skip' is a pseudo tag used by MarkdownPlus.
  // the following KirbyTags are identified:
 const MDP_SUPPORTED_KIRBYTAGS = 'date|email|file|gist|image|link|tel|twitter|video';
@@ -118,7 +118,7 @@ class MarkdownPlus extends MarkdownExtra
      * @return string
      * @throws Exception
      */
-    public function compile(string $str, bool $omitPWrapperTag = false, string $sectionIdentifier = '', $removeComments = true):string
+    public function compile(string $str, bool $omitPWrapperTag = false, string $sectionIdentifier = '', bool $removeComments = true): string
     {
         if (!$str) {
             return '';
@@ -139,7 +139,7 @@ class MarkdownPlus extends MarkdownExtra
      * @return string
      * @throws Exception
      */
-    public function compileParagraph(string $str, bool $omitPWrapperTag = false):string
+    public function compileParagraph(string $str, bool $omitPWrapperTag = false): string
     {
         if (trim($str) === '') {
             return '';
@@ -149,7 +149,7 @@ class MarkdownPlus extends MarkdownExtra
         $str = $this->preprocess($str);
         $html = parent::parseParagraph($str);
         return $this->postprocess($html, $omitPWrapperTag);
-    } // compile
+    } // compileParagraph
 
 
 
@@ -161,10 +161,7 @@ class MarkdownPlus extends MarkdownExtra
     protected function identifyAsciiTable(string $line): bool
     {
         // asciiTable starts with '|==='
-        if (strncmp($line, '|===', 4) === 0) {
-            return true;
-        }
-        return false;
+        return strncmp($line, '|===', 4) === 0;
     }
 
     /**
@@ -183,7 +180,7 @@ class MarkdownPlus extends MarkdownExtra
         if (preg_match('/^\|===*\s+(.*)$/', $firstLine, $m)) {
             $block['args'] = $m[1];
         }
-        for($i = $current + 1, $count = count($lines); $i < $count; $i++) {
+        for ($i = $current + 1, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
             if (strncmp($line, '|===', 4) !== 0) {
                 $block['content'][] = $line;
@@ -203,10 +200,10 @@ class MarkdownPlus extends MarkdownExtra
     protected function renderAsciiTable(array $block): string
     {
         // parse table source, convert to 2D-table:
-        list($table, $nCols, $nRows, $rowAttribs) = $this->parseTableSource($block['content']);
+        [$table, $nCols, $nRows, $rowAttribs] = $this->parseTableSource($block['content']);
 
         // prepare table attributes:
-        list($caption, $attrsStr) = $this->prepareTableAttributes($block['args']);
+        [$caption, $attrsStr] = $this->prepareTableAttributes($block['args']);
         if ($attrsStr === null) {
             return '';
         }
@@ -276,7 +273,8 @@ class MarkdownPlus extends MarkdownExtra
         $col = -1;
 
         // parse source, transform into 2D-array:
-        for ($i = 0; $i < sizeof($content); $i++) {
+        $contentCount = count($content);
+        for ($i = 0; $i < $contentCount; $i++) {
             $line = $content[$i];
 
             if (strncmp($line, '|---', 4) === 0) {  // new row
@@ -304,14 +302,11 @@ class MarkdownPlus extends MarkdownExtra
                             $col++;
                             $table[$row][$col] = $c;
                         }
-                        unset($cells2);
-                        unset($c);
                     } else {
                         $col++;
                         $table[$row][$col] = str_replace('\|', '|', $cell);
                     }
                 }
-
             } else {
                 if ($col < 0) {
                     throw new Exception("Error in AsciiTable: cell definition needs leading '|' (in \"$line\")");
@@ -322,13 +317,12 @@ class MarkdownPlus extends MarkdownExtra
         }
         $nCols++;
         $nRows = $row + 1;
-        unset($cells);
-        return array($table, $nCols, $nRows, $rowAttribs);
+        return [$table, $nCols, $nRows, $rowAttribs];
     } // parseTableSource
 
     /**
      * @param string $args
-     * @return array|null[]
+     * @return array
      */
     private function prepareTableAttributes(string $args): array
     {
@@ -337,8 +331,8 @@ class MarkdownPlus extends MarkdownExtra
         $caption = preg_replace('/\{:(.*?)}/', "$1", $caption);
         if ($caption) {
             $attrs = MdPlusHelper::parseInlineBlockArguments($caption);
-            if (($attrs['tag'] === 'skip') || ($attrs['lang'] && ($attrs['lang'] !== kirby()->language()->code()))) {
-                return array(null, null);
+            if (($attrs['tag'] === 'skip') || ($attrs['lang'] && ($attrs['lang'] !== self::$lang))) {
+                return [null, null];
             }
             $caption = $attrs['text'];
             $caption = "\t  <caption>$caption</caption>\n";
@@ -355,7 +349,7 @@ class MarkdownPlus extends MarkdownExtra
         } else {
             $attrsStr = "id='mdp-table-$inx' class='mdp-table mdp-table-$inx'";
         }
-        return array($caption, $attrsStr);
+        return [$caption, $attrsStr];
     } // prepareTableAttributes
 
 
@@ -370,12 +364,10 @@ class MarkdownPlus extends MarkdownExtra
     {
         // if a line starts with at least 3 marker-chars it is identified as a div-block
         // fence chars e.g. ':$@' -> defined in PageFactory::$config['divblockChars']
-        $marker = $line[0]??' ';
+        $marker = $line[0] ?? ' ';
         if (str_contains($this->divblockChars, $marker)) {
             $qMarker = preg_quote($marker, '/');
-            if (preg_match("/^$qMarker{3,10}\s+\S/", $line)) {
-                return true;
-            }
+            return (bool)preg_match("/^$qMarker{3,10}\s+\S/", $line);
         }
         return false;
     } // identifyDivBlock
@@ -433,8 +425,8 @@ class MarkdownPlus extends MarkdownExtra
 
         // consume all lines until end-tag, e.g. @@@
         $count = count($lines);
-        $content = $attrs['text']."\n" ?: '';
-        for($i = $current + 1; $i < $count; $i++) {
+        $content = $attrs['text'] ? $attrs['text'] . "\n" : '';
+        for ($i = $current + 1; $i < $count; $i++) {
             $line = $lines[$i];
             if (preg_match("/^($pattern)\s*(.*)/", $line, $m)) { // it's a potential fence line
                 $fenceEndCandidate = $m[1];
@@ -568,10 +560,8 @@ class MarkdownPlus extends MarkdownExtra
      */
     protected function identifyTabulator(string $line): bool
     {
-        if (preg_match('/(\s\s|\t) ([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line)) { // identify patterns like '  >> '
-            return true;
-        }
-        return false;
+        // identify patterns like '  >> '
+        return (bool)preg_match('/(\s\s|\t) ([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line);
     } // identifyTabulator
 
     /**
@@ -589,7 +579,7 @@ class MarkdownPlus extends MarkdownExtra
 
         // consume following lines containing >>
         $p = 0;
-        for($i = $current, $count = count($lines); $i <= $count-1; $i++) {
+        for ($i = $current, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
             if (preg_match_all('/([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line, $m)) {
                 $parts = preg_split('/[\s\t]* ([.\d]{1,6}[\w%]{1,2})? >> [\s\t]/x', $line);
@@ -622,7 +612,7 @@ class MarkdownPlus extends MarkdownExtra
         $widths = $block['widths']??[];
         foreach ($block['content'] as $n => $parts) {
             $n++;
-            $last = sizeof($parts) - 1;
+            $last = count($parts) - 1;
             $line = '';
             $lastWidth = '';
             foreach ($parts as $p => $elem) {
@@ -652,16 +642,11 @@ class MarkdownPlus extends MarkdownExtra
     /**
      * Pattern: [|]  or [|s]
      * @param string $line
-     * @param array $lines
-     * @param int $current
      * @return bool
      */
     protected function identifySlidingPanels(string $line): bool
     {
-        if (preg_match('/^\[\|\d{0,3}]\s.+/', $line, $m)) {
-            return true;
-        }
-        return false;
+        return (bool)preg_match('/^\[\|\d{0,3}]\s.+/', $line);
     } // identifySlidingPanels
 
     /**
@@ -698,7 +683,7 @@ class MarkdownPlus extends MarkdownExtra
         $endPattern = "|^$marker|"; // end or start of next accordion
 
         // consume all lines until $marker, e.g. <>
-        for($i = $current+1, $count = count($lines)-1; $i < $count; $i++) {
+        for ($i = $current + 1, $count = count($lines) - 1; $i < $count; $i++) {
             $line = $lines[$i];
             if (!preg_match($endPattern, $line)) {
                 $block['panels'][$blockInx]['content'] .= "$line\n";
@@ -831,7 +816,7 @@ EOT;
             $btnTitlePrev = " title='$btnTitlePrev'";
             $btnTitleNext = " title='$btnTitleNext'";
             $prevLabel = ($i>1) ? $blocks['panels'][$i-2]['title'] : '';
-            $nextLabel = ($i<sizeof($blocks['panels'])) ? $blocks['panels'][$i]['title'] : '';
+            $nextLabel = ($i<count($blocks['panels'])) ? $blocks['panels'][$i]['title'] : '';
 
             $body = self::compile($block['content']);
             $panelBodies .= <<<EOT
@@ -880,10 +865,7 @@ EOT;
      */
     protected function identifyAccordion(string $line): bool
     {
-        if (preg_match('/^<\d*>\s.+/', $line, $m)) {
-            return true;
-        }
-        return false;
+        return (bool)preg_match('/^<\d*>\s.+/', $line);
     } // identifyAccordion
 
     /**
@@ -920,7 +902,7 @@ EOT;
         $endPattern = "|^$marker|"; // end or start of next accordion
 
         // consume all lines until $marker, e.g. <>
-        for($i = $current+1, $count = count($lines)-1; $i < $count; $i++) {
+        for ($i = $current + 1, $count = count($lines) - 1; $i < $count; $i++) {
             $line = $lines[$i];
             if (!preg_match($endPattern, $line)) {
                 $block['accordion'][$blockInx]['content'] .= "$line\n";
@@ -960,9 +942,9 @@ EOT;
     protected function renderAccordion(array $blocks): string
     {
         $out = '';
-        $attrsStr = ''; // once defined, value is copied to consequtive elements, unless overwritten
+        $attrsStr = ''; // once defined, value is copied to consecutive elements, unless overwritten
 
-        $mutex = (sizeof($blocks['accordion']) > 1);
+        $mutex = (count($blocks['accordion']) > 1);
         $wrapperClass = $mutex ? ' mdp-accordion-auto-close' : '';
         $n = self::$accordionInx++;
         foreach ($blocks['accordion'] as $block) {
@@ -1072,7 +1054,7 @@ EOT;
         // consume all lines until 2 empty line
         $nEmptyLines = 0;
         $elemInx = -1;
-        for($i = $current, $count = count($lines); $i < $count-1; $i++) {
+        for ($i = $current, $count = count($lines); $i < $count - 1; $i++) {
             if (!$lines[$i]) {
                 if ($nEmptyLines++ < 1) {
                     continue;
@@ -1136,10 +1118,7 @@ EOT;
      */
     protected function identifyToDoList(string $line): bool
     {
-        if (preg_match('/^-?\[.?]\s+/', $line)) {
-            return true;
-        }
-        return false;
+        return (bool)preg_match('/^-?\[.?]\s+/', $line);
     } // identifyToDoList
 
     /**
@@ -1158,9 +1137,9 @@ EOT;
 
         // consume all lines until 2 empty line
         $checked = false;
-        for($i = $current, $count = count($lines); $i < $count; $i++) {
+        for ($i = $current, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
-            if (!preg_match('/^-?\[.?]\s+/', $line)) {  // empty line
+            if (!preg_match('/^-?\[.?]\s+/', $line)) {  // non-matching line
                 if (!($lines[$i-1]??false)) {
                     break;
                 }
@@ -1203,10 +1182,7 @@ EOT;
      */
     protected function identifyOrderedList(string $line): bool
     {
-        if (preg_match('/^\d+ !? \. /x', $line)) {
-            return true;
-        }
-        return false;
+        return (bool)preg_match('/^\d+ !? \. /x', $line);
     } // identifyOrderedList
 
     /**
@@ -1224,10 +1200,10 @@ EOT;
         ];
 
         // consume all lines until 2 empty line
-        for($i = $current, $count = count($lines); $i < $count; $i++) {
+        for ($i = $current, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
-            if (!preg_match('/^\d+!?\./', $line)) {  // empty line
-                    break;
+            if (!preg_match('/^\d+!?\./', $line)) {
+                break;
             } elseif (preg_match('/^(\d+)!\.\s*(.*)/', $line, $m)) {
                 $block['start'] = $m[1];
                 $line = $m[2];
@@ -1499,7 +1475,7 @@ EOT;
     {
         self::$imageInx++;
         $str = $element[1];
-        list($alt, $src) = explode('](', $str);
+        [$alt, $src] = explode('](', $str);
         if (preg_match('/^ (["\']) (.+) \1 \s* /x', $alt, $m)) {
             $alt = $m[2];
         }
@@ -1737,8 +1713,8 @@ EOT;
     private function handleShieldedCharacters(string $str): string
     {
         $p = 0;
-        while ($p=strpos($str, '\\', $p)) {
-            $ch = $str[$p+1]??'';
+        while (($p = strpos($str, '\\', $p)) !== false) {
+            $ch = $str[$p+1] ?? '';
             if (!$ch) {
                 break;
             }
@@ -1849,7 +1825,7 @@ EOT;
             // multiple lines:
             $lines = explode("\n", $str);
             $attrDescr = false;
-            $nLines = sizeof($lines);
+            $nLines = count($lines);
             for ($i=0; $i<$nLines; $i++) {
                 $line = &$lines[$i];
 
@@ -1898,8 +1874,9 @@ EOT;
     {
         $attrs = MdPlusHelper::parseInlineBlockArguments($attribs);
         
-        if ($p = strpos($line, '>')) {
-            if ($line[$p-1] === '/') {
+        $p = strpos($line, '>');
+        if ($p !== false) {
+            if ($p > 0 && $line[$p-1] === '/') {
                 $elem = rtrim(substr($line, 0, $p-1));
             } else {
                 $elem = rtrim(substr($line, 0, $p));
@@ -1989,10 +1966,10 @@ EOT;
             //throw new Exception("Error: no files found for '$files'");
         }
 
-        list($out, $i) = $this->doIncludeFiles($dir);
+        [$out, $i] = $this->doIncludeFiles($dir);
 
         // if multiple files, wrap each in a <section tag (unless option 'literal')
-        if (!($args['literal']??false) && (sizeof($dir) > 1)) {
+        if (!($args['literal']??false) && (count($dir) > 1)) {
             $tag = $args['wrapperTag'] ?? 'section';
             $customClass = $args['class'] ?? '';
             $class = ' class="mdp-section-' . ($i + 1) . " $customClass\"";
@@ -2067,10 +2044,10 @@ EOT;
     {
         $out = '';
         foreach ($dir as $i => $file) {
-            $str = MdPlusHelper::loadFile($file, 'cstyle');
             if (!file_exists($file)) {
                 throw new Exception("Error: file '$file' not found for including.");
             }
+            $str = MdPlusHelper::loadFile($file, 'cstyle');
             $ext = MdPlusHelper::fileExt($file);
             if ($ext === 'txt') {
                 $str = "<pre>$str</pre>";
@@ -2078,7 +2055,7 @@ EOT;
 
             } elseif ($ext === 'html') {
                 $str = MdPlusHelper::removeHtmlComments($str);
-                list($p1, $p2) = MdPlusHelper::strPosMatching($str, 0, '<body', '</body>');
+                [$p1, $p2] = MdPlusHelper::strPosMatching($str, 0, '<body', '</body>');
                 $p1 = strpos($str, '>', $p1) + 1;
                 $str = substr($str, $p1, ($p2 - $p1));
                 $out .= MdPlusHelper::shieldStr($str, 'block') . "\n";
@@ -2088,7 +2065,7 @@ EOT;
                 $out .= MdPlusHelper::shieldStr($str, 'block') . "\n";
             }
         }
-        return array($out, $i);
+        return [$out, $i];
     } // doIncludeFiles
 
 
@@ -2211,7 +2188,7 @@ EOT;
                 if (!$line) {
                     continue;
                 }
-                list($key, $value) = explodeTrim(':', $line);
+                [$key, $value] = explodeTrim(':', $line);
                 self::$abbr[$key] = $value;
             }
         }

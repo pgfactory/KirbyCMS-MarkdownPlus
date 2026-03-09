@@ -3,8 +3,8 @@
 namespace PgFactory\MarkdownPlus;
 
 
-use Kirby\Data\Yaml as Yaml;
-use Kirby\Data\Json as Json;
+use Kirby\Data\Yaml;
+use Kirby\Data\Json;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
 use function PgFactory\PageFactory\explodeTrim;
@@ -65,6 +65,7 @@ class MdPlusHelper
             $basename = basename($item);
             if (!$basename || ($exclude && preg_match("/$exclude/", $basename[0]))) {
                 unset($files[$i]);
+                continue;
             }
             if (is_dir($item)) {
                 $files[$i] = $item.'/';
@@ -97,10 +98,7 @@ class MdPlusHelper
     public static function iconExists(string $iconName): bool
     {
         $iconFile = self::$availableIcons[$iconName] ?? false;
-        if (!$iconFile || !file_exists($iconFile)) {
-            return false;
-        }
-        return true;
+        return $iconFile && file_exists($iconFile);
     } // iconExists
 
 
@@ -117,10 +115,9 @@ class MdPlusHelper
         }
         $path = kirby()->option('pgfactory.markdownplus.iconsPath');
         if (!$path) {
+            $paths = [];
             if (is_dir(MDP_BASE_PATH . 'site/plugins/pagefactory/assets/icons/')) {
-                $paths[0] = MDP_BASE_PATH . 'site/plugins/pagefactory/assets/icons/';
-            } else {
-                $paths = [];
+                $paths[] = MDP_BASE_PATH . 'site/plugins/pagefactory/assets/icons/';
             }
         } else {
             $paths = explode(',', $path);
@@ -236,7 +233,7 @@ class MdPlusHelper
      */
     public static function shieldStr(string $str, mixed $options = false): string
     {
-        $ch1 = $options[0]??'';
+        $ch1 = is_string($options) ? ($options[0] ?? '') : '';
         $base64 = rtrim(base64_encode($str), '=');
         if ($ch1 === 'm') {
             return '<'.MD_SHIELD.">$base64</".MD_SHIELD.'>';
@@ -512,7 +509,7 @@ class MdPlusHelper
                     $tag = 'skip';
                 }
 
-            } elseif (($cmd === 'off') || (($cmd === 'visible') && ($arg !== 'true')))  {
+            } elseif ($cmd === 'off') {
                 $style = $style? " $style display:none;" : 'display:none;';
 
             } elseif ($cmd === 'showtill') {
@@ -739,7 +736,7 @@ EOT;
 
         // if it's data of a known format (i.e. yaml,json etc), decode it:
         $ext = self::fileExt($file);
-        if (str_contains(',yaml,yml,json,csv', $ext)) {
+        if (in_array($ext, ['yaml', 'yml', 'json', 'csv'])) {
             $data = Yaml::decode($data);
             if ($useCaching) {
                 self::updateDataCache($file, $data);
@@ -896,12 +893,16 @@ EOT;
                 continue;
             }
             $p2 = strpos($str, "*/", $p);
+            if ($p2 === false) {
+                $str = substr($str, 0, $p);
+                break;
+            }
             $str = substr($str, 0, $p) . substr($str, $p2 + 2);
         }
 
         $p = 0;
         while (($p = strpos($str, '//', $p)) !== false) {        // // style comments
-            $ch_1 = $p ? $str[$p - 1] : "\n"; // char preceding '/*' must be whitespace
+            $ch_1 = $p ? $str[$p - 1] : "\n"; // char preceding '//' must be whitespace
             if ($p && ($ch_1 === ':')) {            // avoid http://
                 $p += 2;
                 continue;
@@ -939,7 +940,7 @@ EOT;
             } else {
                 $str = substr($str, 0, $p1);
             }
-            list($p1, $p2) = self::strPosMatching($str,$p1+3, '<!--', '-->');
+            list($p1, $p2) = self::strPosMatching($str, $p1, '<!--', '-->');
         }
         return $str;
     } // removeHtmlComments
@@ -1261,18 +1262,20 @@ EOT;
         }
 
         if (!preg_match('/[^0-9.]+/', $value)) {
-            if(preg_match('/[.]+/', $value)) {
-                return (double)$value;
-            }else{
+            if (str_contains($value, '.')) {
+                if (substr_count($value, '.') === 1) {
+                    return (double)$value;
+                }
+            } else {
                 return (int)$value;
             }
         }
 
-        if ($value == 'true') {
+        if ($value === 'true') {
             return true;
         }
 
-        if ($value == 'false') {
+        if ($value === 'false') {
             return false;
         }
 
@@ -1400,7 +1403,7 @@ EOT;
      * @param int $p1
      * @return int|bool
      */
-    private static function findNextPattern(string $str, string $pat, mixed $p1 = 0): int|bool
+    private static function findNextPattern(string $str, string $pat, int $p1 = 0): int|bool
     {
         while (($p1 = strpos($str, $pat, $p1)) !== false) {
             if (($p1 === 0) || (substr($str, $p1 - 1, 1) !== '\\')) {

@@ -5,7 +5,7 @@ include_once __DIR__ . '/src/MarkdownPlus.php';
 
 Kirby::plugin('pgfactory/markdownplus', [
     'components' => [
-        'markdown' => function (Kirby $kirby, string $text = null) {
+        'markdown' => function (Kirby $kirby, string|null $text = null) {
             if (!$text) {
                 return '';
             }

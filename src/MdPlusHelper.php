@@ -1262,7 +1262,7 @@ EOT;
 
         if (!preg_match('/[^0-9.]+/', $value)) {
             if(preg_match('/[.]+/', $value)) {
-                return (double)$value;
+                return (float)$value;
             }else{
                 return (int)$value;
             }

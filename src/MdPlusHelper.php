@@ -1262,10 +1262,8 @@ EOT;
         }
 
         if (!preg_match('/[^0-9.]+/', $value)) {
-            if (str_contains($value, '.')) {
-                if (substr_count($value, '.') === 1) {
-                    return (double)$value;
-                }
+            if (str_contains($value, '.') && (substr_count($value, '.') === 1)) {
+				return (float)$value;
             } else {
                 return (int)$value;
             }

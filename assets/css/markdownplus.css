@@ -31,6 +31,8 @@ details.mdp-accordion.mdp-border .mdp-accordion-body {
 .mdp-accordion details,
 details.mdp-accordion {
   margin-bottom: 0.5em;
+  color: var(--mdp-accordion-body-txt-color);
+  border: var(--mdp-accordion-details-border);
 }
 .mdp-accordion details[open],
 details.mdp-accordion[open] {
@@ -45,6 +47,7 @@ details.mdp-accordion[open] > summary:before {
 details.mdp-accordion > summary {
   background: var(--mdp-accordion-summary-bg, var(--mdp-accordion-details-bg));
   border-bottom: var(--mdp-accordion-details-border);
+  color: var(--mdp-accordion-summary-txt-color);
   padding: 0.4em 0.2em;
   cursor: pointer;
   list-style: none; /* for Safari */
@@ -87,6 +90,7 @@ details.mdp-accordion.right > summary > span {
 .mdp-accordion-body {
   overflow: hidden; /* avoid margin collapse */
   padding-bottom: 0.5em;
+  padding: var(--mdp-accordion-body-padding);
 }
 .mdp-accordion-body > ul,
 .mdp-accordion-body > ol {

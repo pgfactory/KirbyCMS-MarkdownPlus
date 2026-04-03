@@ -548,7 +548,9 @@ class MdPlusHelper
     {
         return <<<EOT
 @@@@@@ .pfy-help.pfy-encapsulated
-## Help on Attribute Injection
+## Syntax
+Syntax for Div-Blocks and Attribute Injection
+
 BR 
 |===
 |>| **Basic Arguments**
@@ -557,7 +559,7 @@ BR
 |---
 | ``"xyz"`` or  ``'xyz'``     | -> content that will be injected into the block
 |---
-| ``.my-id``      | -> ID applied to the block
+| ``#my-id``      | -> ID applied to the block
 |---
 | ``.my-class``      | -> class applied to the block
 |---

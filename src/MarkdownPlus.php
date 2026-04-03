@@ -56,8 +56,10 @@ const MDP_SMARTYPANTS = [
     '/\bEURO\b/'  => '&euro;',                  // EURO  -> €
     //'/sS/'  => 'ß',
     '|c/o|ms'  => '&incare;',                   // c/o  -> ℅
-    '|1/4|ms'  => '&frac14;',                   // 1/4  -> ½
     '|1/2|ms'  => '&frac12;',                   // 1/2  -> ¼
+    '|1/3|ms'  => '⅓',                          // 1/3  -> ½
+    '|2/3|ms'  => '⅔',                          // 2/3  -> ½
+    '|1/4|ms'  => '&frac14;',                   // 1/4  -> ½
     '|3/4|ms'  => '&frac34;',                   // 3/4  -> ¾
     '|0/00|ms'  => '&permil;',                  // 0/00  -> ‰
 
@@ -65,7 +67,7 @@ const MDP_SMARTYPANTS = [
     "/(?<!') '{2}(\w) /xms"  => "<q>$1",        // ''C  -> <q>   -> «
     "/(\w) '{2} (?!')/xms"  => "$1</q>",        // C'' -> </q>  -> »
 
-    "/(?<!~)~~(?!~)/"  => '≈',                  // ~~  -> ≈
+    "/(?<=\w)~~(?=\w)/"  => '≈',                  // ␣~~␣  -> ≈
     '/\bINFINITY\b/'  => '∞',                   // INFINITY  -> ∞
 ];
 
@@ -1776,7 +1778,10 @@ EOT;
                 }
 
             // catch lines containing but HTML, but ignore Accordion patterns '<\d*> and <span shielded>':
-            } elseif ((($line[0]??'') === '<') && !preg_match('/^(<\d*>|<span shielded)/', $line)) {
+            } elseif ((($line[0]??'') === '<')
+                && !preg_match('/^(<\d*>|<span shielded)/', $line)
+                && !preg_match('/^<http/', $line)
+                && !preg_match('/^<[\w.-]+@[\w.-]+\.\w{2,10}/', $line)) {
                 $lines[$i] = "<literal>$line</literal>";
             }
         }

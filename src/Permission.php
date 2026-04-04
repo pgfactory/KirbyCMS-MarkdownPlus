@@ -3,8 +3,6 @@
 namespace PgFactory\MarkdownPlus;
 
 use Kirby\Data\Data;
-use PgFactory\PageFactory\PageFactory;
-use function PgFactory\PageFactory\explodeTrim;
 
 const MDP_LOG_PATH = MDP_BASE_PATH . 'site/logs/';
 
@@ -30,7 +28,6 @@ class Permission
     /**
      * Evaluates a $permissionQuery against the current visitor's status.
      * @param string $permissionQuery
-     * @param bool $allowOnLocalhost
      * @return bool
      */
     public static function evaluate(string $permissionQuery, bool $allowOnLocalhost = true): bool
@@ -41,7 +38,7 @@ class Permission
 
         $permissionQueryStr = str_replace(' ', '', strtolower($permissionQuery));
 
-        if (str_contains($permissionQueryStr, 'localhost')) {
+        if (str_contains($permissionQuery, 'localhost')) {
             if (self::isLocalhost() && $allowOnLocalhost) {
                 return true;
             }
@@ -58,41 +55,40 @@ class Permission
         $loggedIn = (bool)$user;
         $admission = false;
 
-        $queries = explodeTrim('|,', $permissionQueryStr);
-        foreach ($queries as $query) {
+        $queries = self::explodeTrim('|,', $permissionQueryStr);
+        foreach ($queries as $permissionQuery) {
             // special case 'nobody' or 'noone' -> deny in any case:
-            if ($query === 'nobody' || $query === 'noone') {
+            if ($permissionQuery === 'nobody' || $permissionQuery === 'noone') {
                 return false;
-            }
 
-            // special case 'anybody' or 'anyone' -> always grant access:
-            if ($query === 'anybody' || $query === 'anyone') {
+                // special case 'anybody' or 'anyone' -> always grant access:
+            } elseif ($permissionQuery === 'anybody' || $permissionQuery === 'anyone') {
                 return true;
             }
 
-            if ($query === 'notloggedin' || $query === 'anon') {
-                $admission = $admission || !$loggedIn;
+            if ($permissionQuery === 'notloggedin' || $permissionQuery === 'anon,') {
+                $admission |= !$loggedIn;
 
-            } elseif ($query === 'loggedin') {
-                $admission = $admission || $loggedIn;
+            } elseif ($permissionQuery === 'loggedin') {
+                $admission |= $loggedIn;
 
-            } elseif (preg_match('/^user=(\w+)/', $query, $m)) {
-                if (($name === $m[1]) || ($m[1] === 'loggedin')) {
-                    $admission = $admission || $loggedIn;
-                } elseif ($m[1] === 'anon') {
-                    $admission = $admission || !$loggedIn;
+            } elseif (preg_match('/^user=(\w+)/', $permissionQuery, $m)) {
+                if (($name === $m[1]) || ($m[1] === 'loggedin')) { // explicit user
+                    $admission |= $loggedIn;
+                } elseif ($m[1] === 'anon') { // special case: user 'anon'
+                    $admission |= !$loggedIn;
                 }
 
-            } elseif (preg_match('/^role=(\w+)/', $query, $m)) {
-                if ($role === $m[1]) {
-                    $admission = $admission || $loggedIn;
+            } elseif (preg_match('/^role=(\w+)/', $permissionQuery, $m)) {
+                if ($role === $m[1]) { // explicit role
+                    $admission |= $loggedIn;
                 }
 
-            } elseif ($name === $query || $email === $query || $role === $query) {
-                $admission = $admission || $loggedIn;
+            } elseif (($name === $permissionQuery) || ($email === $permissionQuery) || ($role === $permissionQuery)) { // implicit
+                $admission |= $loggedIn;
             }
         }
-        return $admission;
+        return (bool)$admission;
     } // evaluate
 
 
@@ -101,23 +97,24 @@ class Permission
      * Valid AccessCodes are defined:
      *    - in user's profile as field 'AccessCode'
      *    - page's meta-files (aka .txt) as field 'AccessCode' -> anonymous access(!)
-     * @return mixed
+     * @return bool
      * @throws \Exception
      */
     public static function checkPageAccessCode(): mixed
     {
         $session = kirby()->session();
-        $page = page() ? page()->id() : '';
+        $page = page()->id();
         $accessCodeKey = kirby()->option('pgfactory.markdownplus.accessCodeKey', 'a');
 
         // check whether there is an access code in url-args:
         if (!isset($_GET[$accessCodeKey])) {
             // check whether already granted:
             if ($email = $session->get('pfy.accessCodeUser')) {
-                return kirby()->user($email);
+                $user = kirby()->user($email);
+                return $user;
             }
 
-            if (self::$anonAccess[$page] ?? false) {
+            if (self::$anonAccess[$page]??false) {
                 return 'anon';
             }
             return kirby()->user(); // no access request, return regular login status
@@ -130,8 +127,9 @@ class Permission
 
         // first check against AccessCode of users:
         foreach (kirby()->users() as $user) {
-            $role = strtolower($user->role()->name());
+            $role  = strtolower($user->role()->name());
             if ($role === 'admin') {
+                //self::mylog("AccessCode '$submittedAccessCode' belongs to an admin, therefore denied.", PFY_LOGIN_LOG_FILE);
                 continue;
             }
             $name = $user->nameOrEmail()->value();
@@ -139,7 +137,7 @@ class Permission
             if ($submittedAccessCode === $accessCode) {
                 // match found -> log in
                 $email = $user->email();
-                $message = 'You are logged in now as ' . $name;
+                $message = 'You are logged in now as '.$name;
                 $session->set('pfy.accessCodeUser', $email);
                 self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page'", PFY_LOGIN_LOG_FILE);
                 self::reloadAgent(message: $message);
@@ -147,9 +145,6 @@ class Permission
         }
 
         // try to get "accessCode:" resp. "accessCodes:" from page (i.e. meta-file):
-        if (!page()) {
-            return false;
-        }
         $pageAccessCodes = page()->accesscodes()->value() ?: page()->accesscode()->value();
         $pageAccessCodes = Data::decode($pageAccessCodes, 'YAML');
 
@@ -158,19 +153,41 @@ class Permission
             self::$anonAccess[$page] = true;
             self::mylog("AccessCode '$submittedAccessCode' validated on page '$page'", PFY_LOGIN_LOG_FILE);
             return 'anon';
-        } elseif (PageFactory::$dev ?? false) {
-            self::mylog("Invalid AccessCode '$submittedAccessCode' received for page '$page'", PFY_LOGIN_LOG_FILE);
+        } elseif (PageFactory::$dev??false) {
+                self::mylog("Invalid AccessCode '$submittedAccessCode' received for page '$page'", PFY_LOGIN_LOG_FILE);
         }
         return false;
     } // checkPageAccessCode
 
 
     /**
+     * Given an email address of a registered user, that user is logged in by kirby()->impersonate($email)
+     * @param string $userQuery
+     * @return string|bool
+     * @throws \Throwable
+     */
+    private static function impersonateUser(string $userQuery): string|bool
+    {
+        $email = Permission::findUsersEmail(strtolower($userQuery));
+        if ($email) {
+            if ($user = kirby()->impersonate($email)) {
+                $email = strtolower($user->credentials()['email'] ?? '');
+                return $email;
+            } else {
+                return true;
+            }
+        } else {
+            return true;
+        }
+    } // impersonateUser
+
+
+    /**
      * Given an email or username, checks existence resp. finds user's email address
      * @param string $searchKey
-     * @return string|false
+     * @return string|bool      fals or email address
      */
-    public static function findUsersEmail(string $searchKey): string|false
+    public static function findUsersEmail(string $searchKey): string|bool
     {
         $searchKey = strtolower($searchKey);
         if (str_contains($searchKey, '@')) {
@@ -200,7 +217,10 @@ class Permission
     {
         $user = self::getLoggedInUser();
         if ($user) {
-            return (string)$user->role() === 'admin';
+            $role = (string)$user->role();
+            if ($role === 'admin') {
+                return true;
+            }
         }
         return false;
     } // isAdmin
@@ -269,7 +289,7 @@ class Permission
 
 
     /**
-     * @return \Kirby\Cms\User|false
+     * @return mixed
      */
     public static function getLoggedInUser(): mixed
     {
@@ -285,23 +305,80 @@ class Permission
 
 
     /**
+     * Check if a given ip is in a network
+     * @param  string $ip    IP to check in IPV4 format eg. 127.0.0.1
+     * @param  string $range IP/CIDR netmask eg. 127.0.0.0/24, also 127.0.0.1 is accepted and /32 assumed
+     * @return boolean true if the ip is in this range / false if not.
+     */
+    private static function ipInRange($ip, $range, $netmask = 24) {
+        $range_decimal = ip2long( $range );
+        $ip_decimal = ip2long( $ip );
+        $wildcard_decimal = pow( 2, ( 32 - $netmask ) ) - 1;
+        $netmask_decimal = ~ $wildcard_decimal;
+        return ( ( $ip_decimal & $netmask_decimal ) == ( $range_decimal & $netmask_decimal ) );
+    } // ipInRange
+
+
+    /**
+     * @param string $sep
      * @param string $str
-     * @param string $filename
+     * @param bool $excludeEmptyElems
+     * @return array
+     */
+    private static function explodeTrim(string $sep, string $str, bool $excludeEmptyElems = false): array
+    {
+        $str = trim($str);
+        if ($str === '') {
+            return [];
+        }
+        if (strlen($sep) > 1) {
+            if ($sep[0]  === '/') {
+                if (($m = preg_split($sep, $str)) !== false) {
+                    return $m;
+                }
+            } elseif (!preg_match("/[$sep]/", $str)) {
+                return [ $str ];
+            }
+            $sep = preg_quote($sep);
+            $out = array_map('trim', preg_split("/[$sep]/", $str));
+
+        } else {
+            if (!str_contains($str, $sep)) {
+                return [ $str ];
+            }
+            $out = array_map('trim', explode($sep, $str));
+        }
+
+        if ($excludeEmptyElems) {
+            $out = array_filter($out, function ($item) {
+                return ($item !== '');
+            });
+        }
+        return $out;
+    } // explodeTrim
+
+
+    /**
+     * @param string $str
+     * @param mixed $filename
      * @return void
      * @throws \Exception
      */
-    private static function mylog(string $str, string $filename = 'log.txt'): void
+    private static function mylog(string $str, mixed $filename = false): void
     {
+        $filename = $filename?: 'log.txt';
+
         if (!\Kirby\Toolkit\V::filename($filename)) {
             return;
         }
 
+        // handle special case: webapp is running in root folder, actual app is in subfolder PFY_BASE_OFFSET:
         if (!file_exists(MDP_LOG_PATH)) {
             mkdir(MDP_LOG_PATH, recursive: true);
         }
-        $logFile = MDP_LOG_PATH . $filename;
+        $logFile = MDP_LOG_PATH. $filename;
 
-        $str = date('Y-m-d H:i:s') . "  $str\n\n";
+        $str = date('Y-m-d H:i:s')."  $str\n\n";
         if (file_put_contents($logFile, $str, FILE_APPEND) === false) {
             throw new \Exception("Writing to file '$logFile' failed");
         }
@@ -310,21 +387,23 @@ class Permission
 
     /**
      * Forces the browser to reload.
-     * If a message is provided, it is stored in session and displayed on reload.
-     * @param string $target
-     * @param string $message
+     * If running in a PageFactory context, the message is stored in session and displayed on reload.
+     * @param mixed $target
+     * @param mixed $message
      * @return void
      */
-    private static function reloadAgent(string $target = '', string $message = ''): void
+    private static function reloadAgent(mixed $target = '', mixed $message = ''): void
     {
         if (!$target) {
             $target = page()->url();
         }
-        if ($message) {
-            kirby()->session()->set('pfy.message', $message);
+        if (is_string($message) && $message) {
+            $session = kirby()->session();
+            $session->set('pfy.message', $message);
         }
         header("Location: $target");
         exit;
     } // reloadAgent
 
 } // Permission
+

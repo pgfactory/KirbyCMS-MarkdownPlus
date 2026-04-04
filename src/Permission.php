@@ -3,9 +3,6 @@
 namespace PgFactory\MarkdownPlus;
 
 use Kirby\Data\Data;
-use PgFactory\PageFactory\PageFactory;
-use function PgFactory\PageFactory\explodeTrim;
-use function PgFactory\PageFactory\reloadAgent;
 
 const MDP_LOG_PATH = MDP_BASE_PATH . 'site/logs/';
 
@@ -58,7 +55,7 @@ class Permission
         $loggedIn = (bool)$user;
         $admission = false;
 
-        $queries = explodeTrim('|,', $permissionQueryStr);
+        $queries = self::explodeTrim('|,', $permissionQueryStr);
         foreach ($queries as $permissionQuery) {
             // special case 'nobody' or 'noone' -> deny in any case:
             if ($permissionQuery === 'nobody' || $permissionQuery === 'noone') {
@@ -262,7 +259,7 @@ class Permission
             } else {
                 // in any other case, reset session var:
                 kirby()->session()->remove('pfy.notLocalhost');
-                reloadAgent();
+                self::reloadAgent();
                 return true;
             }
         } else {
@@ -323,6 +320,45 @@ class Permission
 
 
     /**
+     * @param string $sep
+     * @param string $str
+     * @param bool $excludeEmptyElems
+     * @return array
+     */
+    private static function explodeTrim(string $sep, string $str, bool $excludeEmptyElems = false): array
+    {
+        $str = trim($str);
+        if ($str === '') {
+            return [];
+        }
+        if (strlen($sep) > 1) {
+            if ($sep[0]  === '/') {
+                if (($m = preg_split($sep, $str)) !== false) {
+                    return $m;
+                }
+            } elseif (!preg_match("/[$sep]/", $str)) {
+                return [ $str ];
+            }
+            $sep = preg_quote($sep);
+            $out = array_map('trim', preg_split("/[$sep]/", $str));
+
+        } else {
+            if (!str_contains($str, $sep)) {
+                return [ $str ];
+            }
+            $out = array_map('trim', explode($sep, $str));
+        }
+
+        if ($excludeEmptyElems) {
+            $out = array_filter($out, function ($item) {
+                return ($item !== '');
+            });
+        }
+        return $out;
+    } // explodeTrim
+
+
+    /**
      * @param string $str
      * @param mixed $filename
      * @return void
@@ -335,13 +371,12 @@ class Permission
         if (!\Kirby\Toolkit\V::filename($filename)) {
             return;
         }
-        $logPath = MDP_BASE_PATH . 'site/logs/';
 
         // handle special case: webapp is running in root folder, actual app is in subfolder PFY_BASE_OFFSET:
-        if (!file_exists($logPath)) {
-            mkdir($logPath, recursive: true);
+        if (!file_exists(MDP_LOG_PATH)) {
+            mkdir(MDP_LOG_PATH, recursive: true);
         }
-        $logFile = $logPath. $filename;
+        $logFile = MDP_LOG_PATH. $filename;
 
         $str = date('Y-m-d H:i:s')."  $str\n\n";
         if (file_put_contents($logFile, $str, FILE_APPEND) === false) {

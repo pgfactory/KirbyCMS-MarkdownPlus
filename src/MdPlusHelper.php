@@ -370,8 +370,9 @@ class MdPlusHelper
                         $str = $mm[3];
                         $style = "$style{$m[1]}:{$mm[2]}; ";
                     } elseif (preg_match('/^([^\s;]+)(.*)/', $rest, $mm)) {
+                        $arg = str_replace('_', ' ', $mm[1]);
                         $str = $mm[2];
-                        $style = "$style{$m[1]}:{$mm[1]}; ";
+                        $style = "$style{$m[1]}:$arg; ";
                     }
 
                 // catch attribute instructions "xx=yy":

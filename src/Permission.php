@@ -27,13 +27,13 @@ class Permission
 
     /**
      * Evaluates a $permissionQuery against the current visitor's status.
-     * @param string $permissionQuery
+     * @param string|bool $permissionQuery
      * @return bool
      */
-    public static function evaluate(string $permissionQuery, bool $allowOnLocalhost = true): bool
+    public static function evaluate(string|bool $permissionQuery, bool $allowOnLocalhost = true): bool
     {
-        if (!$permissionQuery) {
-            return false;
+        if (is_bool($permissionQuery)) {
+            return $permissionQuery;
         }
 
         $permissionQueryStr = str_replace(' ', '', strtolower($permissionQuery));

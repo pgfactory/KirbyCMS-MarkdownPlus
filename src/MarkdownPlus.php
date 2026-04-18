@@ -1019,7 +1019,12 @@ EOT;
     } // renderAccordion
 
 
-
+    /**
+     * @param string $line
+     * @param array $lines
+     * @param int $current
+     * @return bool
+     */
     protected function identifyDefinitionList(string $line, array $lines, int $current): bool
     {
         // if next line starts with ': ', it's a dl:
@@ -1619,6 +1624,8 @@ EOT;
 
         $str = $this->handleFrontmatter($str);
 
+        $str = $this->handleInlinePhp($str);
+
         $str = $this->handleAbbreviations($str);
 
         $str = $this->handleShieldedCharacters($str);
@@ -2103,6 +2110,11 @@ EOT;
     } // handleKirbyTags
 
 
+    /**
+     * @param $kirbyTag
+     * @return mixed|string
+     * @throws Exception
+     */
     public function processKirbyTag($kirbyTag) {
         foreach (MDP_KIRBYTAG_PATTERNS as $macro => $pattern) {
             if (str_starts_with($kirbyTag, $pattern)) {
@@ -2179,6 +2191,45 @@ EOT;
         }
         return $str;
     } // handleFrontmatter
+
+
+    /**
+     * @param string $str
+     * @return string
+     */
+    private function handleInlinePhp(string $str): string
+    {
+        if (! kirby()->option('pgfactory.markdownplus.processInlinePhp')) {
+            return $str;
+        }
+
+        // handle  ≺?= php-expression ?≻:
+        while (preg_match_all('/<\?= (.*?) \?>/xms', $str, $m)) {
+            foreach ($m[1] as $i => $phpExpr) {
+                try {
+                    $phpExpr = "return $phpExpr;";
+                    $res = eval($phpExpr);
+                } catch (\Throwable $e) {
+                    exit($e->getMessage());
+                }
+                $str = str_replace($m[0][$i], $res, $str);
+            }
+        }
+
+        // handle  ≺?php php-expression ?≻:
+        while (preg_match_all('/<\?php (.*?) \?>/xms', $str, $m)) {
+            foreach ($m[1] as $i => $phpExpr) {
+                try {
+                    $phpExpr = "$phpExpr;";
+                    $res = eval($phpExpr);
+                } catch (\Throwable $e) {
+                    exit($e->getMessage());
+                }
+                $str = str_replace($m[0][$i], $res, $str);
+            }
+        }
+        return $str;
+    } // handleInlinePhp
 
 
     /**

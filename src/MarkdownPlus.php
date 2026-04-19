@@ -944,57 +944,74 @@ EOT;
     protected function renderAccordion(array $blocks): string
     {
         $out = '';
-        $attrsStr = ''; // once defined, value is copied to consecutive elements, unless overwritten
+        $accordionAttributes = [];
 
         $mutex = (count($blocks['accordion']) > 1);
         $wrapperClass = $mutex ? ' mdp-accordion-auto-close' : '';
         $n = self::$accordionInx++;
+        if ($mutex) {
+            $accordionAttributes['name'] = "mdp-accordion-$n";
+        }
+
         foreach ($blocks['accordion'] as $block) {
-            $open = '';
+            $attrsStr = '';
             if ($accordionAttrs = $block['accordionAttrs']) {
                 // !open:
-                if (trim($accordionAttrs) === '!open') {
-                    $open = ' open';
-                } else {
+                if (str_contains($accordionAttrs, '!open')) {
+                    $accordionAttrs = str_replace('!open', '', $accordionAttrs);
+                    $attrsStr = 'open ';
+                }
 
-                    if (str_contains($accordionAttrs, '!open')) {
-                        $accordionAttrs = str_replace('!open', '', $accordionAttrs);
-                        $open = ' open';
-                    }
-
-                    // !frame:
-                    if (preg_match('/!frame(=)?(\S*)/', $accordionAttrs, $m)) {
-                        if ($m[1] && (($m[2] ?? false) !== 'true')) {
-                            $accordionAttrs = str_replace($m[0], ".mdp-border --mdp-accordion-details-border-color:{$m[2]}", $accordionAttrs);
-                        } else {
-                            $accordionAttrs = str_replace('!frame', '.mdp-border', $accordionAttrs);
-                        }
-                    }
-
-                    // !bg:
-                    if (preg_match('/!bg=(\S+)/', $accordionAttrs, $m)) {
-                        $accordionAttrs = str_replace($m[0], "--mdp-accordion-details-bg:{$m[1]}", $accordionAttrs);
-                    }
-
-                    $attrs = MdPlusHelper::parseInlineBlockArguments(".mdp-accordion .mdp-accordion-$n " . $accordionAttrs);
-                    $attrsStr = $attrs['htmlAttrs'];
-                    if ($open) {
-                        $attrsStr .= ' open';
-                        $open = ''; // already included in $attrsStr, avoid duplication
+                // !frame:
+                if (preg_match('/!frame(=)?(\S*)/', $accordionAttrs, $m)) {
+                    if ($m[1] && (($m[2] ?? false) !== 'true')) {
+                        $accordionAttrs = str_replace($m[0], ".mdp-border --mdp-accordion-details-border-color:{$m[2]}", $accordionAttrs);
+                    } else {
+                        $accordionAttrs = str_replace('!frame', '.mdp-border', $accordionAttrs);
                     }
                 }
+
+                // !bg:
+                if (preg_match('/!bg=(\S+)/', $accordionAttrs, $m)) {
+                    $accordionAttrs = str_replace($m[0], "--mdp-accordion-details-bg:{$m[1]}", $accordionAttrs);
+                }
+
+                // get attributes:
+                $attrs = MdPlusHelper::parseInlineBlockArguments($accordionAttrs);
+                // add given attributes to persistent attr array:
+                try {
+                    array_walk($attrs, function ($value, $key) use (&$accordionAttributes) {
+                        $accordionAttributes[$key] = $value ?: $accordionAttributes[$key] ?? '';
+                    });
+                } catch (Exception $e) {
+                    throw new Exception("Syntax error in accordion: $accordionAttrs");
+                }
+                // update class if needed:
+                $class = &$accordionAttributes['class'];
+                if (!preg_match("/mdp-accordion mdp-accordion-\d+/", $class, $m)) {
+                    $class .= " mdp-accordion mdp-accordion-$n";
+                }
             } else {
-                $attrsStr = $attrsStr ?: " class='mdp-accordion mdp-accordion-$n'";
+                $accordionAttributes['class'] = ($accordionAttributes['class']??false) ?: "mdp-accordion mdp-accordion-$n";
             }
-            if ($mutex && !str_contains($attrsStr, 'name=\'')) {
-                $attrsStr .= " name='mdp-accordion-$n'";
+
+            // compile effective attribute string:
+            foreach ($accordionAttributes as $key => $value) {
+                switch ($key) {
+                    case 'name':  $attrsStr .= $value ? "name='$value'" : ''; break;
+                    case 'class': $attrsStr .= $value ? " class='$value'" : ''; break;
+                    case 'style': $attrsStr .= $value ? " style='$value'" : ''; break;
+                    case 'id':    $attrsStr .= $value ? " id='$value'" : ''; $accordionAttributes['id'] = ''; break;
+                    case 'attr':  $attrsStr .= $value ? ' '.implode('  ', $value) : ''; break;
+                }
             }
 
             $summary = self::compileParagraph($block['summary']);
             $body = self::compile($block['content']);
+            $attrsStr = trim($attrsStr);
             $out .= <<<EOT
 
-    <details $attrsStr$open>
+    <details $attrsStr>
       <summary><span>$summary</span></summary>
       <div class="mdp-accordion-body">
 $body

@@ -153,7 +153,7 @@ class Permission
             self::$anonAccess[$page] = true;
             self::mylog("AccessCode '$submittedAccessCode' validated on page '$page'", PFY_LOGIN_LOG_FILE);
             return 'anon';
-        } elseif (PageFactory::$dev??false) {
+        } elseif (\PgFactory\PageFactory\PageFactory::$dev??false) {
                 self::mylog("Invalid AccessCode '$submittedAccessCode' received for page '$page'", PFY_LOGIN_LOG_FILE);
         }
         return false;

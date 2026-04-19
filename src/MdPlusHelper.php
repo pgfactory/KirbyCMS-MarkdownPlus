@@ -7,8 +7,6 @@ use Kirby\Data\Yaml;
 use Kirby\Data\Json;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
-use function PgFactory\PageFactory\explodeTrim;
-use function PgFactory\PageFactory\getFile;
 
 if (defined('PFY_KIRBY_BASE_PATH')) {
     define('MDP_BASE_PATH',         PFY_KIRBY_BASE_PATH);
@@ -1567,7 +1565,7 @@ EOT;
             // check for custom smartypants definitons:
             if (file_exists(MDP_SMARTYPANTS_FILE)) {
                 $smartypants = [];
-                $lines = explodeTrim("\n", getFile(MDP_SMARTYPANTS_FILE, 'z,h'), true);
+                $lines = self::explodeTrim("\n", self::getFile(MDP_SMARTYPANTS_FILE, 'z,h'), true);
                 foreach ($lines as $line) {
                     list($key, $value) = explode(': ', $line);
                     $smartypants[$key] = $value;

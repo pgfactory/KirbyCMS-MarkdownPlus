@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
+<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
 <g fill="currentColor" transform="translate(0,110) scale(0.85,0.85)">
 <g><path d="M401.808,32.664H110.192C49.44,32.664,0,83.176,0,145.256v111.536c0,62.08,49.44,112.592,110.192,112.592h184.336 l134,109.952V365.992C476.992,353.64,512,309.016,512,256.776v-111.52C512,83.176,462.56,32.664,401.808,32.664z M480.016,256.776 H480c0,40.976-29.808,75.376-69.36,80.032l-14.128,1.664v73.184l-90.56-74.304h-195.76C67.072,337.384,32,301.224,32,256.776 v-111.52c0-44.432,35.072-80.592,78.192-80.592h291.632c43.104,0,78.192,36.16,78.192,80.592V256.776z"></path>
 </g>

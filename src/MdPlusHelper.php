@@ -352,6 +352,8 @@ class MdPlusHelper
         $tag = $id = $class = $style = $text = $lang = $aux = '';
         $literal = $inline = 0;
         $attr = [];
+        $showFrom = false;
+        $showTill = false;
 
         $str = str_replace(['&lt;', '&ndash;'], ['<', '--'], $str);
 
@@ -413,7 +415,7 @@ class MdPlusHelper
                     }
                     break;
                 case '!':
-                    $str = self::_parseMetaCmds($str, $lang, $literal, $inline, $style, $tag, $aux, $text);
+                    $str = self::_parseMetaCmds($str, $lang, $literal, $inline, $style, $tag, $aux, $text, $showFrom, $showTill);
                     break;
                 case '"':
                     if (($p = strpos($str, '"')) !== false) {
@@ -430,6 +432,15 @@ class MdPlusHelper
                         $text = $text ? "$text $t" : $t;
                     }
                     break;
+            }
+        }
+
+        // check and evaluate time constraints:
+        if ($showTill !== false || $showFrom !== false) {
+            if (!self::isNowVisible($showFrom, $showTill)) {
+                $lang = 'none';
+                $tag = 'skip';
+                $style = $style? " $style display:none;" : 'display:none;';
             }
         }
         if ($literal === 0) {
@@ -466,7 +477,7 @@ class MdPlusHelper
      * @param string $style
      * @param string $tag
      */
-    private static function _parseMetaCmds(string $str, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag, string &$aux, string &$text): string
+    private static function _parseMetaCmds(string $str, string &$lang, mixed &$literal, mixed &$inline, string &$style, string &$tag, string &$aux, string &$text, string|false &$showFrom, string|false &$showTill): string
     {
         if (preg_match('/^([\w-]+) [=:]? (.*) /x', $str, $m)) {
             $cmd = strtolower($m[1]);
@@ -514,22 +525,12 @@ class MdPlusHelper
             } elseif ($cmd === 'showtill') {
                 // if no time defined, round up to end of day:
                 if (!preg_match('/\d\d:\d\d/', $arg)) {
-                    $arg .= ' 23:59';
+                    $arg .= ' 23:59:59';
                 }
-                $t = strtotime($arg) - time();
-                if ($t < 0) {
-                    $lang = 'none';
-                    $tag = 'skip';
-                    $style = $style? " $style display:none;" : 'display:none;';
-                }
+                $showTill = $arg;
 
             } elseif ($cmd === 'showfrom') {
-                $t = strtotime($arg) - time();
-                if ($t > 0) {
-                    $lang = 'none';
-                    $tag = 'skip';
-                    $style = $style? " $style display:none;" : 'display:none;';
-                }
+                $showFrom = $arg;
             } elseif ($cmd === 'help') {
                 $text = self::renderMetaCmdsHelp();
             } else {
@@ -538,6 +539,50 @@ class MdPlusHelper
         }
         return $str;
     } // _parseMetaCmds
+
+
+    /**
+     * @param mixed $showFrom
+     * @param mixed $showTill
+     * @return bool
+     * @throws Exception
+     */
+    public static function isNowVisible(mixed $showFrom, mixed $showTill): bool
+    {
+        $now = time();
+
+        $from = ($showFrom === false) ? 0           : (is_numeric($showFrom) ? (int) $showFrom : strtotime($showFrom));
+        $till = ($showTill === false) ? PHP_INT_MAX : (is_numeric($showTill) ? (int) $showTill : strtotime($showTill));
+
+        // both in the post:
+        if ($till < $now && $from < $now) {
+            // pause "$till < $from" -> vislble now
+            // show  "$from < $till" -> invisible now
+            $visible = $till < $from;
+
+        // both in the future:
+        } elseif ($till > $now && $from > $now) {
+            // pause "$till < $from" -> vislble now
+            // show  "$from < $till" -> invisible now
+            $visible = $till < $from;
+
+        } else {
+            // pause now:
+            if ($till < $now && $from > $now) {
+                $visible = false;
+
+            // visible now:
+            } elseif ($till > $now && $from < $now) {
+                $visible = true;
+
+            //
+            } else {
+                throw new Exception("impossible time constraint?");
+            }
+        }
+
+        return $visible;
+    } // isVisible
 
 
     /**

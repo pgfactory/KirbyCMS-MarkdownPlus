@@ -61,7 +61,8 @@ const MDP_SMARTYPANTS = [
     '|2/3|ms'  => '⅔',                          // 2/3  -> ½
     '|1/4|ms'  => '&frac14;',                   // 1/4  -> ½
     '|3/4|ms'  => '&frac34;',                   // 3/4  -> ¾
-    '|0/00|ms'  => '&permil;',                  // 0/00  -> ‰
+    '|0/00|ms' => '&permil;',                   // 0/00  -> ‰
+    '/&nbg;/'    => ' ',                    // narrow no-breaking space aka "no-breaking-gap"
 
     // quotation marks -> use CSS to adapt to locale, e.g. "q { "«" "»" "‹" "›"; }"
     "/(?<!') '{2}(\w) /xms"  => "<q>$1",        // ''C  -> <q>   -> «

@@ -535,6 +535,9 @@ class MdPlusHelper
                 $text = self::renderMetaCmdsHelp();
             } else {
                 $aux = $cmd;
+                if ($arg) {
+                    $aux .= "='$arg'";
+                }
             }
         }
         return $str;
@@ -674,8 +677,8 @@ EOT;
             $out .= ' '.implode(' ', $attr);
             $htmlAttrArray = array_merge($htmlAttrArray, $attr);
         }
-        if ($aux) {
-            $out .= " data-aux='$aux'";
+        if ($aux) { // anything else, e.g. "!popover"
+            $out .= " $aux";
             $htmlAttrArray['aux'] = $aux;
         }
         return [$out, $htmlAttrArray];

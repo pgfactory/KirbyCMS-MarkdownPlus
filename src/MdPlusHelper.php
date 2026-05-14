@@ -554,8 +554,8 @@ class MdPlusHelper
     {
         $now = time();
 
-        $from = ($showFrom === false) ? 0           : (is_numeric($showFrom) ? (int) $showFrom : strtotime($showFrom));
-        $till = ($showTill === false) ? PHP_INT_MAX : (is_numeric($showTill) ? (int) $showTill : strtotime($showTill));
+        $from = (($showFrom??false) === false) ? 0           : (is_numeric($showFrom) ? (int) $showFrom : strtotime($showFrom));
+        $till = (($showTill??false) === false) ? PHP_INT_MAX : (is_numeric($showTill) ? (int) $showTill : strtotime($showTill));
 
         // both in the post:
         if ($till < $now && $from < $now) {

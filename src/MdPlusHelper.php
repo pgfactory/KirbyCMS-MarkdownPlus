@@ -360,7 +360,7 @@ class MdPlusHelper
         $showFrom = false;
         $showTill = false;
 
-        $str = str_replace(['&lt;', '&ndash;'], ['<', '--'], $str);
+        $str = str_replace(['&lt;', '&ndash;', '–'], ['<', '--', '--'], $str);
 
         // parse argument string, element by element:
         while ($str) {

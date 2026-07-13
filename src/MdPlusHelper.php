@@ -489,7 +489,12 @@ class MdPlusHelper
             $str = ltrim($m[2]);
             $arg = '';
             if (preg_match('/^(\S+)\s*(.*)/', $str, $m)) {
-                list($_, $arg, $str) = $m;
+                $arg = $m[1];
+                $str = $m[2];
+                if (preg_match('/(.*?)(!.*)/', $arg, $m)) {
+                    $arg = $m[1];
+                    $str = "{$m[2]} $str";
+                }
             }
             if ($cmd === 'literal') {
                 $literal = true;
@@ -539,7 +544,7 @@ class MdPlusHelper
             } elseif ($cmd === 'help') {
                 $text = self::renderMetaCmdsHelp();
             } else {
-                $aux = $cmd;
+                $aux .= ' ' . $cmd;
                 if ($arg) {
                     $aux .= "='$arg'";
                 }
@@ -686,7 +691,7 @@ EOT;
             $out .= " $aux";
             $htmlAttrArray['aux'] = $aux;
         }
-        return [$out, $htmlAttrArray];
+        return [trim($out), $htmlAttrArray];
     } // _assembleHtmlAttrs
 
 

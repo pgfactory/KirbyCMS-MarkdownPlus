@@ -51,7 +51,8 @@ const MDP_SMARTYPANTS = [
     '/(?<!!)<-/'  => '&larr;',                  // <-  -> ←
     '/(?<!=)<=/'  => '&lArr;',                  // <=  -> ⇐
     '/(?<!\.)\.\.\.(?!\.)/'  => '&hellip;',     // ...  -> …
-    '/(?<!-|!)--(?!-|>)/'  => '–',        // --   -> –  (except <!-- --> )
+    '/ -- /'  => '–',        // --   -> –  (with leading and trailing blanks)
+    // '/(?<!-|!)--(?!-|>)/'  => '–',        // --   -> –  (except <!-- --> )
 
     '/\bEURO\b/'  => '&euro;',                  // EURO  -> €
     //'/sS/'  => 'ß',
@@ -946,6 +947,7 @@ EOT;
     {
         $out = '';
         $accordionAttributes = [];
+        $modeClass = 'mdp-accordion-group';
 
         $mutex = (count($blocks['accordion']) > 1);
         $wrapperClass = $mutex ? ' mdp-accordion-auto-close' : '';
@@ -954,7 +956,9 @@ EOT;
             $accordionAttributes['name'] = "mdp-accordion-$n";
         }
 
+        $i = 0;
         foreach ($blocks['accordion'] as $block) {
+            $i++;
             $attrsStr = '';
             if ($accordionAttrs = $block['accordionAttrs']) {
                 // !open:
@@ -979,6 +983,16 @@ EOT;
 
                 // get attributes:
                 $attrs = MdPlusHelper::parseInlineBlockArguments($accordionAttrs);
+
+                // switch to tabs mode if one of the details contains a meta-argument "!tabs":
+                $auxAttrs = $attrs['htmlAttrs'];
+                if (str_contains($auxAttrs, 'tabs')) {
+                    $modeClass = 'mdp-tabs';
+                    if (str_contains($auxAttrs, 'borders')){
+                        $wrapperClass .= ' mdp-tabs-border';
+                    }
+                }
+
                 // add given attributes to persistent attr array:
                 try {
                     array_walk($attrs, function ($value, $key) use (&$accordionAttributes) {
@@ -995,6 +1009,10 @@ EOT;
             } else {
                 $accordionAttributes['class'] = ($accordionAttributes['class']??false) ?: "mdp-accordion mdp-accordion-$n";
             }
+
+            // apply css variable as counter -> used by mdp-tabs:
+            $accordionAttributes['style'] = preg_replace('/--n:\s*\d+/', '', ($accordionAttributes['style']??''));
+            $accordionAttributes['style'] .= "--n:$i";
 
             // compile effective attribute string:
             foreach ($accordionAttributes as $key => $value) {
@@ -1023,16 +1041,14 @@ $body
 EOT;
         }
 
-        if ($wrapperClass) {
-            $out = <<<EOT
+        $out = <<<EOT
 
-<div class="mdp-accordion-group$wrapperClass">
+<div class="$modeClass$wrapperClass">
 $out
 </div><!-- /accordion-wrapper -->
 
 
 EOT;
-        }
         return $out;
     } // renderAccordion
 

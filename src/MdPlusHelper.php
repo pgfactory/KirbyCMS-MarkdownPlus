@@ -691,7 +691,7 @@ EOT;
             $out .= " $aux";
             $htmlAttrArray['aux'] = $aux;
         }
-        return [trim($out), $htmlAttrArray];
+        return [$out, $htmlAttrArray];
     } // _assembleHtmlAttrs
 
 

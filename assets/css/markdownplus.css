@@ -2,44 +2,45 @@
   Markdown Plus Styling
 */
 
+@charset "UTF-8";
 
 /* === Accordion ======================= */
-@charset "UTF-8";
-.mdp-accordion-group details.mdp-accordion summary:has(> span:empty) {
+.mdp-accordion-group > details.mdp-accordion > summary:has(> span:empty) {
   display: none;
 }
-.mdp-accordion-group details.mdp-accordion:has([data-frame]),
-.mdp-accordion-group details.mdp-accordion.mdp-border {
+.mdp-accordion-group > details.mdp-accordion:has([data-frame]),
+.mdp-accordion-group > details.mdp-accordion.mdp-border {
   border: 1px solid var(--mdp-accordion-details-border-color, #ddd);
 }
-.mdp-accordion-group details.mdp-accordion:has(summary > span:empty):has([data-frame]):not([open]) {
+.mdp-accordion-group > details.mdp-accordion:has(> summary > span:empty):has([data-frame]):not([open]) {
+/*.mdp-accordion-group > details.mdp-accordion:has(summary > span:empty):has([data-frame]):not([open]) {*/
   border: none;
 }
-.mdp-accordion-group .mdp-accordion:has([data-frame]) .mdp-accordion-body,
-.mdp-accordion-group .mdp-accordion.mdp-border .mdp-accordion-body {
+.mdp-accordion-group > .mdp-accordion:has([data-frame]) .mdp-accordion-body,
+.mdp-accordion-group > .mdp-accordion.mdp-border .mdp-accordion-body {
   border-top: 1px solid var(--mdp-accordion-border-top-color, #f3f4f6);
 }
-.mdp-accordion-group details.mdp-accordion:has([data-frame]) .mdp-accordion-body,
-.mdp-accordion-group details.mdp-accordion.mdp-border .mdp-accordion-body {
+.mdp-accordion-group > details.mdp-accordion:has([data-frame]) .mdp-accordion-body,
+.mdp-accordion-group > details.mdp-accordion.mdp-border .mdp-accordion-body {
   padding: 0.5em;
 }
-.mdp-accordion-group .mdp-accordion details,
-.mdp-accordion-group details.mdp-accordion {
+.mdp-accordion-group > .mdp-accordion details,
+.mdp-accordion-group > details.mdp-accordion {
   margin-bottom: 0.5em;
   color: var(--mdp-accordion-body-txt-color);
   border: var(--mdp-accordion-details-border);
 }
-.mdp-accordion-group .mdp-accordion details[open],
-.mdp-accordion-group details.mdp-accordion[open] {
+.mdp-accordion-group > .mdp-accordion details[open],
+.mdp-accordion-group > details.mdp-accordion[open] {
   background: var(--mdp-accordion-details-bg);
 }
-.mdp-accordion-group .mdp-accordion details[open] > summary:before,
-.mdp-accordion-group details.mdp-accordion[open] > summary:before {
+.mdp-accordion-group > .mdp-accordion details[open] > summary:before,
+.mdp-accordion-group > details.mdp-accordion[open] > summary:before {
   content: attr(data-icon-closed, "▷");
   transform: rotate(var(--mdp-icon-rotation-open, 90deg));
 }
-.mdp-accordion-group .mdp-accordion details > summary,
-.mdp-accordion-group details.mdp-accordion > summary {
+.mdp-accordion-group > .mdp-accordion details > summary,
+.mdp-accordion-group > details.mdp-accordion > summary {
   background: var(--mdp-accordion-summary-bg, var(--mdp-accordion-details-bg));
   border-bottom: var(--mdp-accordion-details-border);
   color: var(--mdp-accordion-summary-txt-color);
@@ -47,21 +48,21 @@
   cursor: pointer;
   list-style: none;
 }
-.mdp-accordion-group .mdp-accordion details > summary > span,
-.mdp-accordion-group details.mdp-accordion > summary > span {
+.mdp-accordion-group > .mdp-accordion details > summary > span,
+.mdp-accordion-group > details.mdp-accordion > summary > span {
   display: block;
   padding-left: 1.1em;
 }
-.mdp-accordion-group .mdp-accordion details > summary::marker,
-.mdp-accordion-group details.mdp-accordion > summary::marker {
+.mdp-accordion-group .mdp-accordion > details > summary::marker,
+.mdp-accordion-group > details.mdp-accordion > summary::marker {
   content: "";
 }
-.mdp-accordion-group .mdp-accordion details > summary::-webkit-details-marker,
-.mdp-accordion-group details.mdp-accordion > summary::-webkit-details-marker {
+.mdp-accordion-group > .mdp-accordion details > summary::-webkit-details-marker,
+.mdp-accordion-group > details.mdp-accordion > summary::-webkit-details-marker {
   display: none;
 }
-.mdp-accordion-group .mdp-accordion details > summary:before,
-.mdp-accordion-group details.mdp-accordion > summary:before {
+.mdp-accordion-group > .mdp-accordion details > summary:before,
+.mdp-accordion-group > details.mdp-accordion > summary:before {
   content: attr(data-icon-open, "▷");
   transform: rotate(var(--mdp-icon-rotation, 0deg));
   font-family: sans-serif;
@@ -71,37 +72,37 @@
   margin: 0.25em 0.4em 0 0;
   transition: transform 0.2s;
 }
-.mdp-accordion-group .mdp-accordion details.right > summary:before,
-.mdp-accordion-group details.mdp-accordion.right > summary:before {
+.mdp-accordion-group > .mdp-accordion details.right > summary:before,
+.mdp-accordion-group > details.mdp-accordion.right > summary:before {
   float: right;
 }
-.mdp-accordion-group .mdp-accordion details.right > summary > span,
-.mdp-accordion-group details.mdp-accordion.right > summary > span {
+.mdp-accordion-group > .mdp-accordion details.right > summary > span,
+.mdp-accordion-group > details.mdp-accordion.right > summary > span {
   padding-left: 0;
 }
-.mdp-accordion-group .mdp-accordion-body {
+.mdp-accordion-group > .mdp-accordion-body {
   overflow: hidden;
   padding-bottom: 0.5em;
   padding: var(--mdp-accordion-body-padding);
 }
-.mdp-accordion-group .mdp-accordion-body > ul,
-.mdp-accordion-group .mdp-accordion-body > ol {
+.mdp-accordion-group > .mdp-accordion-body > ul,
+.mdp-accordion-group > .mdp-accordion-body > ol {
   margin-top: 0;
   margin-bottom: 0;
 }
-.mdp-accordion-group .mdp-accordion-shadow[open] summary {
+.mdp-accordion-group > .mdp-accordion-shadow[open] > summary {
   box-shadow: 0 5px 5px -5px rgba(0, 0, 0, 0.75);
 }
 
-.mdp-accordion-group details.mdp-accordion {
+.mdp-accordion-group > details.mdp-accordion {
   margin-bottom: 0;
 }
 
-.mdp-accordion-group .mdp-accordion.mdp-border {
+.mdp-accordion-group > .mdp-accordion.mdp-border {
   border-top: none;
 }
 
-.mdp-accordion-group .mdp-accordion.mdp-border:first-child {
+.mdp-accordion-group > .mdp-accordion.mdp-border:first-child {
   border-top: 1px solid var(--mdp-accordion-details-border-color, #ddd);
 }
 
@@ -110,7 +111,7 @@
 }
 
 @supports selector(::details-content) {
-  .mdp-accordion-group .mdp-accordion details::details-content,
+  .mdp-accordion-group > .mdp-accordion details::details-content,
   .mdp-accordion-group details.mdp-accordion::details-content {
     padding: 0 var(--mdp-accordion-details-padding, 0);
   }
@@ -149,25 +150,25 @@
   grid-template-rows: auto 1fr;
   column-gap: 1rem;
 }
-.mdp-tabs details {
+.mdp-tabs > details {
   display: grid;
   grid-template-columns: subgrid;
   grid-template-rows: subgrid;
   grid-column: 1/-1;
   grid-row: 1/span 3;
 }
-.mdp-tabs details > div {
+.mdp-tabs > details > div {
   padding-top: 1em;
   padding-bottom: 1em;
 }
-.mdp-tabs details::details-content {
+.mdp-tabs > details::details-content {
   grid-row: 2;
   grid-column: 1/-1;
 }
-.mdp-tabs details:not([open])::details-content {
+.mdp-tabs > details:not([open])::details-content {
   display: none;
 }
-.mdp-tabs summary {
+.mdp-tabs > details > summary {
   grid-row: 1;
   display: grid;
   padding: 1rem;
@@ -175,16 +176,16 @@
   cursor: pointer;
   z-index: 1;
 }
-.mdp-tabs details[open] summary {
+.mdp-tabs > details[open] > summary {
   font-weight: bold;
   border-bottom: 2px solid var(--mdp-tabs-border-color, black);
 }
-.mdp-tabs summary {
+.mdp-tabs > details > summary {
   grid-column: var(--n)/span 1;
 }
 
-.mdp-tabs.mdp-tabs-border details > div,
-.mdp-tabs-border .mdp-tabs details > div {
+.mdp-tabs.mdp-tabs-border > details > div,
+.mdp-tabs-border .mdp-tabs > details > div {
   padding: 1rem;
   border: 1px solid var(--mdp-tabs-border-color, gray);
   background: var(--mdp-tabs-bg-color, #eee);

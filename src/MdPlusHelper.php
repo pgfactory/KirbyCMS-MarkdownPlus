@@ -450,6 +450,9 @@ class MdPlusHelper
         }
         if ($literal === 0) {
             $literal = null;
+        } elseif ($literal === 'pre') {
+            $tag = 'pre';
+            $literal = true;
         }
         if ($inline === 0) {
             $inline = null;
@@ -498,6 +501,9 @@ class MdPlusHelper
             }
             if ($cmd === 'literal') {
                 $literal = true;
+
+            } elseif ($cmd === 'pre') {
+                $literal = 'pre';
 
             } elseif ($cmd === 'user') {
                 $admitted = Permission::evaluate("user=$arg");

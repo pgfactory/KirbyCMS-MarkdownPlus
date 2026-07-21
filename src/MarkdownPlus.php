@@ -1035,7 +1035,7 @@ EOT;
       <div class="mdp-accordion-body">
 $body
       </div><!-- /.mdp-accordion-body -->
-    </details><!-- /accordion -->
+    </details><!-- /mdp-accordion -->
 
 
 EOT;
@@ -1045,7 +1045,7 @@ EOT;
 
 <div class="$modeClass$wrapperClass">
 $out
-</div><!-- /accordion-wrapper -->
+</div><!-- /$modeClass -->
 
 
 EOT;

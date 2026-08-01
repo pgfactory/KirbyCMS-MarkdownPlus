@@ -1741,7 +1741,8 @@ EOT;
      */
     private function smartypants(string $str): string
     {
-        if (!$this->enableSmartypants) {
+        $smartypantsEnabled = MdPlusHelper::isSmartypantsEnabled(); // true, false or null
+        if (!$this->enableSmartypants || $smartypantsEnabled === false) {
             return $str;
         }
         return MdPlusHelper::translateSmartypants($str);

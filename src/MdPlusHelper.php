@@ -29,6 +29,7 @@ class MdPlusHelper
     private static array $processedSvgIcons = [];
     private static string $bodyEndInjections = '';
     private static array $smartypants = [];
+    private static bool|null $smartypantsEnabled = null;
 
 
     /**
@@ -1643,5 +1644,22 @@ EOT;
     } // translateSmartypants
 
 
+    /**
+     * @param bool $enable
+     * @return void
+     */
+    public static function enableSmartypants(bool $enable = true): void
+    {
+        self::$smartypantsEnabled = $enable;
+    } // enableSmartypants
+
+
+    /**
+     * @return bool|null
+     */
+    public static function isSmartypantsEnabled(): bool|null
+    {
+        return self::$smartypantsEnabled;
+    } // isSmartypantsEnabled
 
 } // MdPlusHelper

@@ -100,14 +100,22 @@ class Permission
      * @return bool
      * @throws \Exception
      */
-    public static function checkPageAccessCode(): mixed
+    public static function checkPageAccessCode(string $accessCode = ''): mixed
     {
         $session = kirby()->session();
         $page = page()->id();
         $accessCodeKey = kirby()->option('pgfactory.markdownplus.accessCodeKey', 'a');
 
         // check whether there is an access code in url-args:
-        if (!isset($_GET[$accessCodeKey])) {
+        if ($accessCode) {
+            // use $accessCode from caller:
+            $submittedAccessCode = $accessCode;
+
+        } elseif (isset($_GET[$accessCodeKey])) {
+            // get access code:
+            $submittedAccessCode = get($accessCodeKey, null);
+            unset($_GET[$accessCodeKey]);
+        } else {
             // check whether already granted:
             if ($email = $session->get('pfy.accessCodeUser')) {
                 $user = kirby()->user($email);
@@ -118,11 +126,6 @@ class Permission
                 return 'anon';
             }
             return kirby()->user(); // no access request, return regular login status
-
-        } else {
-            // get access code:
-            $submittedAccessCode = get($accessCodeKey, null);
-            unset($_GET[$accessCodeKey]);
         }
 
         // first check against AccessCode of users:

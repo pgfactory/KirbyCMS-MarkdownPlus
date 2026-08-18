@@ -140,7 +140,11 @@ class Permission
             if ($submittedAccessCode === $accessCode) {
                 // match found -> log in
                 $email = $user->email();
-                $message = 'You are logged in now as '.$name;
+                if (!(\PgFactory\PageFactory\PageFactory::$lang??false)) {
+                    $message = 'You are logged in now as '.$name;
+                } else {
+                    $message = \PgFactory\PageFactory\TransVars::getVariable('pfy-logged-in-as').$name;
+                }
                 $session->set('pfy.accessCodeUser', $email);
                 self::mylog("AccessCode '$submittedAccessCode' validated and user logged-in as '$email' on page '$page'", PFY_LOGIN_LOG_FILE);
                 self::reloadAgent(message: $message);

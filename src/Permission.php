@@ -19,6 +19,8 @@ const MDP_LOG_PATH = MDP_BASE_PATH . 'site/logs/';
  *  $permissionQuery = 'xy'         -> permitted if role or username or user's email is 'xy'
  *  $permissionQuery = 'localhost'  -> permitted if browser running on local host
  *  $permissionQuery = 'xy|localhost'-> combined with other criteria
+ *
+ * Preceeding '!' or 'not' inverts the query's meaning.
  */
 class Permission
 {
@@ -38,12 +40,6 @@ class Permission
 
         $permissionQueryStr = str_replace(' ', '', strtolower($permissionQuery));
 
-        if (str_contains($permissionQuery, 'localhost')) {
-            if (self::isLocalhost() && $allowOnLocalhost) {
-                return true;
-            }
-        }
-
         $user = self::checkPageAccessCode();
 
         $name = $role = $email = false;
@@ -57,38 +53,50 @@ class Permission
 
         $queries = self::explodeTrim('|,', $permissionQueryStr);
         foreach ($queries as $permissionQuery) {
+            $invert = false;
+            if (str_starts_with($permissionQuery, '!')) {
+                $invert = true;
+                $permissionQuery = substr($permissionQuery,1);
+            } elseif (str_starts_with($permissionQuery, 'not')) {
+                $invert = true;
+                $permissionQuery = substr($permissionQuery,3);
+            }
+
             // special case 'nobody' or 'noone' -> deny in any case:
             if ($permissionQuery === 'nobody' || $permissionQuery === 'noone') {
-                return false;
+                return $invert;
 
                 // special case 'anybody' or 'anyone' -> always grant access:
             } elseif ($permissionQuery === 'anybody' || $permissionQuery === 'anyone') {
-                return true;
+                return !$invert;
             }
 
-            if ($permissionQuery === 'notloggedin' || $permissionQuery === 'anon,') {
-                $admission |= !$loggedIn;
+            if ($permissionQuery === 'loggedin') {
+                $admission = $admission || ($invert xor $loggedIn);
 
-            } elseif ($permissionQuery === 'loggedin') {
-                $admission |= $loggedIn;
+            } elseif ($permissionQuery === 'localhost') {
+                $admission = $admission || (self::isLocalhost() && $allowOnLocalhost);
 
             } elseif (preg_match('/^user=(\w+)/', $permissionQuery, $m)) {
                 if (($name === $m[1]) || ($m[1] === 'loggedin')) { // explicit user
-                    $admission |= $loggedIn;
+                    $admission = $admission || ($invert xor $loggedIn);
                 } elseif ($m[1] === 'anon') { // special case: user 'anon'
-                    $admission |= !$loggedIn;
+                    $admission = $admission || ($invert xor (!$loggedIn));
                 }
 
             } elseif (preg_match('/^role=(\w+)/', $permissionQuery, $m)) {
                 if ($role === $m[1]) { // explicit role
-                    $admission |= $loggedIn;
+                    $admission = $admission || ($invert xor $loggedIn);
                 }
 
+            } elseif ($permissionQuery === 'admin') {
+                $admission = $admission || ($invert xor self::isAdmin());
+
             } elseif (($name === $permissionQuery) || ($email === $permissionQuery) || ($role === $permissionQuery)) { // implicit
-                $admission |= $loggedIn;
+                $admission = $admission || ($invert xor $loggedIn);
             }
         }
-        return (bool)$admission;
+        return $admission;
     } // evaluate
 
 

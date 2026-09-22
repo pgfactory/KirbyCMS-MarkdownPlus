@@ -156,7 +156,7 @@ class MdPlusHelper
         }
 
         if ($title) {
-            $title = " title='" . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . "'";
+            $title = ' title="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '"';
         }
         $iconFile = self::$availableIcons[$iconName] ?? false;
         if (!$iconFile || !file_exists($iconFile)) {
@@ -168,9 +168,9 @@ class MdPlusHelper
 
         if (str_ends_with($iconFile, '.svg')) {
             $icon = self::renderIconFromFile($iconName, $iconFile);
-            $icon = "<span class='mdp-icon$class'$title>$icon</span>";
+            $icon = "<span class=\"mdp-icon$class\"$title>$icon</span>";
         } else {
-            $icon = "<span class='mdp-icon$class'$title><img src='$iconFile' alt=''></span>";
+            $icon = "<span class=\"mdp-icon$class\"$title><img src=\"$iconFile\" alt=\"\"></span>";
         }
         return $icon;
     } // renderIcon
@@ -190,7 +190,7 @@ class MdPlusHelper
             $icon = self::$processedSvgIcons[$iconName];
 
         } elseif (!str_ends_with($iconFile, '.svg')) {
-            $icon = "<img src='$iconFile' alt=''>";
+            $icon = "<img src=\"$iconFile\" alt=\"\">";
 
         } else {
             $str = svg($iconFile);
@@ -200,20 +200,20 @@ class MdPlusHelper
                 throw new Exception("Error in code of icon '$iconName'");
             }
             $svg = $m[1];
-            $icon = "$svg<use href='#$iconId' /></svg>";
+            $icon = "$svg<use href=\"#$iconId\" /></svg>";
             $svg = substr($svg,4);
             if (str_contains($svg, 'aria-hidden=')) {
-                $svg = "<svg style='display:none' focusable='false'$svg";
+                $svg = "<svg style=\"display:none\" focusable=\"false\"$svg";
             } else {
-                $svg = "<svg style='display:none' focusable='false' aria-hidden='true'$svg";
+                $svg = "<svg style=\"display:none\" focusable=\"false\" aria-hidden=\"true\"$svg";
             }
             $svgBody = $m[2];
-            $str = "$svg<symbol id='$iconId'>$svgBody</symbol></svg>";
+            $str = "$svg<symbol id=\"$iconId\">$svgBody</symbol></svg>";
             self::$bodyEndInjections .= $str;
             self::$processedSvgIcons[$iconName] = $icon;
         }
         if ($class) {
-            $icon = "<span class='$class'>$icon</span>";
+            $icon = "<span class=\"$class\">$icon</span>";
         }
         return $icon;
     } // renderIconFromFile
@@ -298,7 +298,7 @@ class MdPlusHelper
                 $url = $text = $item;
                 $url = str_replace('@', '&#64;', $url);
                 $url = "mailto:$url";
-                $item = self::shieldStr("<a href='$url'>$text</a>");
+                $item = self::shieldStr("<a href=\"$url\">$text</a>");
                 $str = str_replace($m[0][$i], $item, $str);
             }
         }
@@ -308,7 +308,7 @@ class MdPlusHelper
             foreach ($m[0] as $i => $item) {
                 $url = $item;
                 $url = str_replace('.', '&#46;', $url);
-                $item = self::shieldStr("<a href='$url' target='_blank'>$url</a>");
+                $item = self::shieldStr("<a href=\"$url\" target=\"_blank\">$url</a>");
                 $str = str_replace($m[0][$i], $item, $str);
             }
         }
@@ -553,7 +553,7 @@ class MdPlusHelper
             } else {
                 $aux .= ' ' . $cmd;
                 if ($arg) {
-                    $aux .= "='$arg'";
+                    $aux .= "=\"$arg\"";
                 }
             }
         }
@@ -633,7 +633,7 @@ BR
 |---
 |>| **Meta Commands**
 |---
-| ``!off``          | -> hides the block (with ``style='display:none'``)
+| ``!off``          | -> hides the block (with ``style="display:none"``)
 |---
 | ``!lang=xy``      | -> omits the block unless given language is active
 |---
@@ -679,15 +679,15 @@ EOT;
         $out = '';
         $htmlAttrArray = [];
         if ($id) {
-            $out .= " id='$id'";
+            $out .= " id=\"$id\"";
             $htmlAttrArray['id'] = $id;
         }
         if ($class) {
-            $out .= " class='$class'";
+            $out .= " class=\"$class\"";
             $htmlAttrArray['class'] = $class;
         }
         if ($style) {
-            $out .= " style='$style'";
+            $out .= " style=\"$style\"";
             $htmlAttrArray['style'] = $style;
         }
         if ($attr) {

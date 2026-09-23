@@ -225,7 +225,7 @@ class MarkdownPlus extends MarkdownExtra
             for ($col = 0; $col < $nCols; $col++) {
                 $cell = $table[0][$col] ?? '';
                 $cell = self::compileParagraph($cell, omitPWrapperTag: true);
-                $out .= "\t\t<th class=\"mdp-col-".($col+1)."\">$cell</th>\n";
+                $out .= "\t\t<th class='mdp-col-".($col+1)."'>$cell</th>\n";
             }
             $out .= "    </tr>\n  </thead>\n";
         }
@@ -249,9 +249,9 @@ class MarkdownPlus extends MarkdownExtra
                 }
                 $colspanAttr = '';
                 if ($colspan > 1) {
-                    $colspanAttr = " colspan=\"$colspan\"";
+                    $colspanAttr = " colspan='$colspan'";
                 }
-                $out .= "\t\t<td class=\"mdp-row-".($row+1)." mdp-col-".($col+1)."\"$colspanAttr>\n\t\t\t$cell\t\t</td>\n";
+                $out .= "\t\t<td class='mdp-row-".($row+1)." mdp-col-".($col+1)."'$colspanAttr>\n\t\t\t$cell\t\t</td>\n";
                 $colspan = 1;
             }
             $out .= "\t</tr>\n";
@@ -347,11 +347,11 @@ class MarkdownPlus extends MarkdownExtra
                 $class .= ' ' . $attrs['class'];
             }
             if (!$attrs['id']) {
-                $attrsStr = "id=\"mdp-table-$inx\" " . $attrsStr;
+                $attrsStr = "id='mdp-table-$inx' " . $attrsStr;
             }
-            $attrsStr .= " class=\"$class\"";
+            $attrsStr .= " class='$class'";
         } else {
-            $attrsStr = "id=\"mdp-table-$inx\" class=\"mdp-table mdp-table-$inx\"";
+            $attrsStr = "id='mdp-table-$inx' class='mdp-table mdp-table-$inx'";
         }
         return [$caption, $attrsStr];
     } // prepareTableAttributes
@@ -623,7 +623,7 @@ class MarkdownPlus extends MarkdownExtra
                 $i = $p + 1;
                 $lastClass = ($p === $last) ? ' tt-last' : '';
                 $elem = self::compileParagraph($elem);
-                $line .= "<div class=\"tt$i$lastClass\">$elem</div>";
+                $line .= "<div class='tt$i$lastClass'>$elem</div>";
                 if ($w = ($widths[$n-1][$p]??false)) {
                     $style .= "--tt$i-width: $w;";
                     $lastWidth .= " - var(--tt$i-width, var(--tt-width))";
@@ -631,13 +631,13 @@ class MarkdownPlus extends MarkdownExtra
                     $lastWidth .= " - var(--tt$i-width, var(--tt-width))";
                 }
             }
-            $out .= "<div class=\"mdp-tabulator-wrapper mdp-tabulator-wrapper-$n\">\n$line\n</div>\n";
+            $out .= "<div class='mdp-tabulator-wrapper mdp-tabulator-wrapper-$n'>\n$line\n</div>\n";
         }
         $style .= "--tt-last: calc(100%$lastWidth)";
         if ($style) {
-            $style = " style=\"$style\"";
+            $style = " style='$style'";
         }
-        return "<div class=\"mdp-tabulator-outer-wrapper mdp-tabulator-outer-wrapper-$inx\"$style>\n$out\n</div><!-- /mdp-tabulator-outer-wrapper-$inx -->\n";
+        return "<div class='mdp-tabulator-outer-wrapper mdp-tabulator-outer-wrapper-$inx'$style>\n$out\n</div><!-- /mdp-tabulator-outer-wrapper-$inx -->\n";
     } // renderTabulator
 
 
@@ -807,7 +807,7 @@ EOT;
                 $attrsStr = $attrs['htmlAttrs'];
             } else {
                 $open = $i === 1 ? ' mdp-panel-open' : '';
-                $attrsStr = " class=\"mdp-panel mdp-panel-$i$open\"";
+                $attrsStr = " class='mdp-panel mdp-panel-$i$open'";
             }
 
             $title = self::compileParagraph($block['title']);
@@ -817,8 +817,8 @@ EOT;
                 $btnTitlePrev = TransVars::getVariable('pfy-goto-prev-panel-title', $btnTitlePrev);
                 $btnTitleNext = TransVars::getVariable('pfy-goto-next-panel-title', $btnTitleNext);
             }
-            $btnTitlePrev = " title=\"$btnTitlePrev\"";
-            $btnTitleNext = " title=\"$btnTitleNext\"";
+            $btnTitlePrev = " title='$btnTitlePrev'";
+            $btnTitleNext = " title='$btnTitleNext'";
             $prevLabel = ($i>1) ? $blocks['panels'][$i-2]['title'] : '';
             $nextLabel = ($i<count($blocks['panels'])) ? $blocks['panels'][$i]['title'] : '';
 
@@ -1017,10 +1017,10 @@ EOT;
             // compile effective attribute string:
             foreach ($accordionAttributes as $key => $value) {
                 switch ($key) {
-                    case 'name':  $attrsStr .= $value ? "name\"$value\"" : ''; break;
-                    case 'class': $attrsStr .= $value ? " class=\"$value\"" : ''; break;
-                    case 'style': $attrsStr .= $value ? " style=\"$value\"" : ''; break;
-                    case 'id':    $attrsStr .= $value ? " id=\"$value\"" : ''; $accordionAttributes['id'] = ''; break;
+                    case 'name':  $attrsStr .= $value ? "name='$value'" : ''; break;
+                    case 'class': $attrsStr .= $value ? " class='$value'" : ''; break;
+                    case 'style': $attrsStr .= $value ? " style='$value'" : ''; break;
+                    case 'id':    $attrsStr .= $value ? " id='$value'" : ''; $accordionAttributes['id'] = ''; break;
                     case 'attr':  $attrsStr .= $value ? ' '.implode('  ', $value) : ''; break;
                 }
             }
@@ -1210,7 +1210,7 @@ EOT;
                 $out .= "<li$checked>$line</li>\n";
             }
         }
-        $out = "<ul class=\"mdp-todo-list\">\n$out</ul>\n";
+        $out = "<ul class='mdp-todo-list'>\n$out</ul>\n";
         return $out;
     } // renderToDoList
 
@@ -1266,7 +1266,7 @@ EOT;
         $out = '';
         $start = '';
         if ($block['start'] !== false) {
-            $start = " start=\"{$block['start']}\"";
+            $start = " start='{$block['start']}'";
         }
         foreach ($block['content'] as $line) {
                 $line = self::compile($line, true);
@@ -1548,11 +1548,11 @@ EOT;
         } elseif ($caption) {
             $src = htmlspecialchars($src, ENT_QUOTES, 'UTF-8');
             $caption = htmlspecialchars($caption, ENT_QUOTES, 'UTF-8');
-            $str = "<img src=\"$src\" alt=\"$alt\">";
+            $str = "<img src='$src' alt='$alt'>";
             $str = "<figure>$str<figcaption>$caption</figcaption></figure>";
         } else {
             $src = htmlspecialchars($src, ENT_QUOTES, 'UTF-8');
-            $str = "<img src=\"$src\" alt=\"$alt\">";
+            $str = "<img src='$src' alt='$alt'>";
         }
         return $str;
     } // renderImage
@@ -1602,8 +1602,8 @@ EOT;
             $str = $this->processByMacro('link', $attr);
         } else {
             $link = htmlspecialchars($link, ENT_QUOTES, 'UTF-8');
-            $title = $title ? ' title="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '"' : '';
-            $str = "<a href=\"$link\"$title>$linkText</a>";
+            $title = $title ? " title='" . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . "'" : '';
+            $str = "<a href='$link'$title>$linkText</a>";
         }
         return $str;
     } // renderLink
@@ -2053,7 +2053,7 @@ EOT;
         $files = htmlspecialchars($files, ENT_QUOTES, 'UTF-8');
         $str = <<<EOT
 
-<iframe src="$files" class="mdp-iframe"></iframe>
+<iframe src='$files' class="mdp-iframe"></iframe>
 
 EOT;
 
@@ -2306,7 +2306,7 @@ EOT;
             // for all instances, warp them into <abbr>:
             foreach (self::$abbr as $key => $value) {
                 if (str_contains($str, $key)) {
-                    $value = shieldStr("<abbr class=\"pfy-tippy\" title=\"$value\">$key</abbr>", 'inline');
+                    $value = shieldStr("<abbr class='pfy-tippy' title='$value'>$key</abbr>", 'inline');
                     $str = preg_replace("/\b$key\b/m", $value, $str);
                 }
             }

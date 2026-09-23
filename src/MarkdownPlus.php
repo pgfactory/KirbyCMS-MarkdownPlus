@@ -4,6 +4,7 @@ namespace PgFactory\MarkdownPlus;
 use cebe\markdown\MarkdownExtra;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
+use Kirby\Text\Markdown;
 use PgFactory\PageFactory\Macros;
 use PgFactory\PageFactory\TransVars;
 use function PgFactory\PageFactory\explodeTrim;
@@ -51,11 +52,8 @@ const MDP_SMARTYPANTS = [
     '/(?<!!)<-/'  => '&larr;',                  // <-  -> ←
     '/(?<!=)<=/'  => '&lArr;',                  // <=  -> ⇐
     '/(?<!\.)\.\.\.(?!\.)/'  => '&hellip;',     // ...  -> …
-    '/ -- /'  => '–',        // --   -> –  (with leading and trailing blanks)
-    // '/(?<!-|!)--(?!-|>)/'  => '–',        // --   -> –  (except <!-- --> )
-
+    '/\s--\s/'  => '–',        // --   -> –  (with leading and trailing blanks)
     '/\bEURO\b/'  => '&euro;',                  // EURO  -> €
-    //'/sS/'  => 'ß',
     '|c/o|ms'  => '&incare;',                   // c/o  -> ℅
     '|1/2|ms'  => '&frac12;',                   // 1/2  -> ¼
     '|1/3|ms'  => '⅓',                          // 1/3  -> ½
@@ -69,8 +67,7 @@ const MDP_SMARTYPANTS = [
     "/(?<!') '{2}(\w) /xms"  => "<q>$1",        // ''C  -> <q>   -> «
     "/(\w) '{2} (?!')/xms"  => "$1</q>",        // C'' -> </q>  -> »
 
-    "/(?<=\w)~~(?=\w)/"  => '≈',                  // ␣~~␣  -> ≈
-    '/\bINFINITY\b/'  => '∞',                   // INFINITY  -> ∞
+    "/~=/"  => '≈',                             // ~=  -> ≈
 ];
 
 
@@ -902,7 +899,12 @@ EOT;
             throw new Exception("Syntax error in line $current: '{$lines[$current]}'");
         }
         $marker = $m[1];
-        $block['accordion'][$blockInx]['summary'] = $m[2];
+        $summary = $m[2];
+        // check whether summary might contain markdown instructions, compile if so:
+        if (preg_match('/[^\w\s]/', $summary)) {
+            $summary = kirby()->markdown($summary);
+        }
+        $block['accordion'][$blockInx]['summary'] = $summary;
         $endPattern = "|^$marker|"; // end or start of next accordion
 
         // consume all lines until $marker, e.g. <>

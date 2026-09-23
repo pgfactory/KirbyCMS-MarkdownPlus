@@ -48,6 +48,14 @@
   cursor: pointer;
   list-style: none;
 }
+.mdp-accordion-group summary h1,
+.mdp-accordion-group summary h2,
+.mdp-accordion-group summary h3,
+.mdp-accordion-group summary h4,
+.mdp-accordion-group summary h5 {
+  display: inline-block;
+  margin: 0;
+}
 .mdp-accordion-group > .mdp-accordion details > summary > span,
 .mdp-accordion-group > details.mdp-accordion > summary > span {
   display: block;

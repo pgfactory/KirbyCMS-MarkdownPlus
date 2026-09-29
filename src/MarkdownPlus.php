@@ -1208,8 +1208,8 @@ EOT;
             $line = self::compile($line, true);
             $line = trim($line);
             if ($line) {
-                $checked = $block['checked'][$i] ? ' class="checked"' : '';
-                $out .= "<li$checked>$line</li>\n";
+                $checked = $block['checked'][$i] ? ' checked' : '';
+                $out .= "<li><label><input type='checkbox'$checked><span></span><div>$line</div></label></li>\n";
             }
         }
         $out = "<ul class='mdp-todo-list'>\n$out</ul>\n";

@@ -201,27 +201,43 @@
 
 
 /* === ToDo Lists ====================== */
-.mdp-todo-list li {
-  list-style-type: " ";
-  position: relative;
-  padding-left: 0.4em;
+ul.mdp-todo-list {
+  padding-inline-start: 0;
+  /*--mdp-todo-list-scale: 2;*/
+  /*--mpb-todo-list-marker: "⏺";*/
+  /*--mpb-todo-list-marker: "⚑";*/
+  /*--mpb-todo-list-marker: "✘";*/
+  /*--mpb-todo-list-marker: "✔";*/
+}
+.mdp-todo-list > li {
+  list-style-type: none;
+  padding: 0.1em 0 0.1em 0.25em;
+  line-height: 1.2em;
   user-select: none;
 }
-.mdp-todo-list li::marker {
-  font-size: 1.3em;
+.mdp-todo-list > li > label > div {
+  display: inline-block;
 }
-.mdp-todo-list li.checked {
-  list-style-type: "✓";
+.mdp-todo-list > li > label > input {
+  appearance: none;
 }
-.mdp-todo-list li::before {
-  content: " ";
+.mdp-todo-list > li > label > span {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+  width:  calc(var(--mdp-todo-list-scale, 1) * 1.2em);
+  height: calc(var(--mdp-todo-list-scale, 1) * 1.2em);
   border: 1px solid currentColor;
-  border-radius: 50%;
-  width: 1em;
-  height: 1em;
+  border-radius: 33%;
+  margin-right: 0.3em;
+  cursor: pointer;
+}
+.mdp-todo-list > li > label > input:checked + span::after {
+  content: var(--mpb-todo-list-marker, "✓");
+  font-size: calc(var(--mdp-todo-list-scale, 1) * 100%);
   position: absolute;
-  top: 0.2em;
-  left: -1.4em;
+  top: calc(var(--mdp-todo-list-scale, 1) * 0.3em - 0.3em);
+  left: 0.25em;
 }
 
 

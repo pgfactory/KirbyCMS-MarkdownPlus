@@ -217,6 +217,7 @@ ul.mdp-todo-list {
 }
 .mdp-todo-list > li > label > div {
   display: inline-block;
+  vertical-align: middle;
 }
 .mdp-todo-list > li > label > input {
   appearance: none;
@@ -224,7 +225,7 @@ ul.mdp-todo-list {
 .mdp-todo-list > li > label > span {
   position: relative;
   display: inline-block;
-  vertical-align: top;
+  vertical-align: middle;
   width:  calc(var(--mdp-todo-list-scale, 1) * 1.2em);
   height: calc(var(--mdp-todo-list-scale, 1) * 1.2em);
   border: 1px solid currentColor;

@@ -1183,9 +1183,8 @@ EOT;
         for ($i = $current, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
             if (!preg_match('/^-?\[.?]\s+/', $line)) {  // non-matching line
-                if (!($lines[$i-1]??false)) {
-                    break;
-                }
+                $i--;
+                break;
             } elseif (preg_match('/^-?\[(.?)]\s+(.*)/', $line, $m)) {
                 $checked = (bool)trim($m[1]);
                 $line = $m[2];

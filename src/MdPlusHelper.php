@@ -372,10 +372,11 @@ class MdPlusHelper
                 // catch style instructions "xx:yy":
                 if (preg_match('/^([\w-]+):\s*(.*)/', $str, $m)) {
                     $rest = $m[2];
-                    if (preg_match('/^([\'"]) (.*?) \1 (.*)/x', $rest, $mm)) {
+                    if (preg_match('/^([\'"]) (.*?) \1 (.*)/x', $rest, $mm)) { // arg in quotes
                         $str = $mm[3];
-                        $style = "$style{$m[1]}:{$mm[2]}; ";
-                    } elseif (preg_match('/^([^\s;]+)(.*)/', $rest, $mm)) {
+                        $q = $mm[1] ? '"' : '';
+                        $style = "$style{$m[1]}:$q{$mm[2]}$q; ";
+                    } elseif (preg_match('/^([^\s;]+)(.*)/', $rest, $mm)) { // arg without quotes
                         $arg = str_replace('_', ' ', $mm[1]);
                         $str = $mm[2];
                         $style = "$style{$m[1]}:$arg; ";

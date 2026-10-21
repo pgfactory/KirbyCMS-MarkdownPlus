@@ -1,8 +1,7 @@
+@charset "UTF-8";
 /*
   Markdown Plus Styling
 */
-
-@charset "UTF-8";
 
 /* === Accordion ======================= */
 .mdp-accordion-group > details.mdp-accordion > summary:has(> span:empty) {
@@ -216,6 +215,9 @@ ul.mdp-todo-list {
   user-select: none;
 }
 .mdp-todo-list > li > label > div {
+  max-width: calc(100% - var(--mdp-todo-list-scale, 1) * 1.2em - var(--mdp-todo-list-marker-gap, 0.5em));
+}
+.mdp-todo-list > li > label > div {
   display: inline-block;
   vertical-align: middle;
 }
@@ -230,7 +232,7 @@ ul.mdp-todo-list {
   height: calc(var(--mdp-todo-list-scale, 1) * 1.2em);
   border: 1px solid currentColor;
   border-radius: 33%;
-  margin-right: 0.3em;
+  margin-right: var(--mdp-todo-list-marker-gap, 0.5em);
   cursor: pointer;
 }
 .mdp-todo-list > li > label > input:checked + span::after {

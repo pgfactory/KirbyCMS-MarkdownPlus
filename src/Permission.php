@@ -51,6 +51,7 @@ class Permission
         $loggedIn = (bool)$user;
         $admission = false;
 
+        $permissionQueryStr = str_replace(['"', "'"], '', $permissionQueryStr);
         $queries = self::explodeTrim('|,', $permissionQueryStr);
         foreach ($queries as $permissionQuery) {
             $invert = false;

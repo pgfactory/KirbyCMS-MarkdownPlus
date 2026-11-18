@@ -30,6 +30,7 @@ class MdPlusHelper
     private static string $bodyEndInjections = '';
     private static array $smartypants = [];
     private static bool|null $smartypantsEnabled = null;
+    private static bool|null $autoConvertLinks = null;
 
 
     /**
@@ -288,8 +289,10 @@ class MdPlusHelper
      */
     public static function autoConvertLinks(string $str): string
     {
-        $autoWrapUrls = (page()->autowrapurls()->value() === 'true') || kirby()->option('pgfactory.markdownplus.autoConvertLinks');
-        if (!$autoWrapUrls) {
+        if (self::$autoConvertLinks === null) {
+            self::$autoConvertLinks = (page()->autoConvertLinks()->value() === 'true') || kirby()->option('pgfactory.markdownplus.autoConvertLinks');
+        }
+        if (!self::$autoConvertLinks) {
             return $str;
         }
         // e-mail addresses:
@@ -1662,5 +1665,11 @@ EOT;
     {
         return self::$smartypantsEnabled;
     } // isSmartypantsEnabled
+
+
+    public static function enableAutoConvertLinks(bool $enable = true): void
+    {
+        self::$autoConvertLinks = $enable;
+    } // enableAutoConvertLinks
 
 } // MdPlusHelper

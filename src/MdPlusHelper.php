@@ -245,7 +245,7 @@ class MdPlusHelper
         } elseif ($ch1 === 'i') {
             return '<'.INLINE_SHIELD.">$base64</".INLINE_SHIELD.'>';
         } else {
-            return '<'.BLOCK_SHIELD.">$base64</".BLOCK_SHIELD.'>';
+            return '<'.BLOCK_SHIELD.">$base64</".BLOCK_SHIELD.">\n";
         }
     } // shieldStr
 

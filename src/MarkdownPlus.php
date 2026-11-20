@@ -4,12 +4,8 @@ namespace PgFactory\MarkdownPlus;
 use cebe\markdown\MarkdownExtra;
 use Exception;
 use Kirby\Exception\InvalidArgumentException;
-use Kirby\Text\Markdown;
 use PgFactory\PageFactory\Macros;
 use PgFactory\PageFactory\TransVars;
-use function PgFactory\PageFactory\explodeTrim;
-use function PgFactory\PageFactory\getFile;
-use function PgFactory\PageFactory\shieldStr;
 
 include_once __DIR__ . '/MdPlusHelper.php';
 
@@ -418,7 +414,7 @@ class MarkdownPlus extends MarkdownExtra
         }
 
         $block['tag'] = $tag;
-        $block['attributes'] = str_contains($attrs['htmlAttrs'], '--') ? shieldStr($attrs['htmlAttrs']) : $attrs['htmlAttrs'];
+        $block['attributes'] = str_contains($attrs['htmlAttrs'], '--') ? MdPlusHelper::shieldStr($attrs['htmlAttrs']) : $attrs['htmlAttrs'];
         $block['lang'] = $attrs['lang'];
         $block['literal'] = $attrs['literal'];
         $block['meta'] = '';
@@ -1148,7 +1144,7 @@ $out</dl>
 
 
 EOT;
-        $out = shieldStr($out);
+        $out = MdPlusHelper::shieldStr($out);
         return $out;
     } // renderDefinitionList
 
@@ -1945,7 +1941,7 @@ EOT;
 
         // attributes:
         if ($attrs['htmlAttrs']??false) {
-            $elem .=  str_contains($attrs['htmlAttrs'], '--') ? shieldStr($attrs['htmlAttrs']) : $attrs['htmlAttrs'];
+            $elem .=  str_contains($attrs['htmlAttrs'], '--') ? MdPlusHelper::shieldStr($attrs['htmlAttrs']) : $attrs['htmlAttrs'];
         }
 
         return "$elem>$rest";
@@ -2192,18 +2188,18 @@ EOT;
      */
     private function processByMacro(string $macroName, string $argStr): mixed
     {
-        if (!class_exists('PgFactory\\PageFactory\\PageFactory')) {
-            return false;
-        }
-        // insert commas between arguments:
-        if (!str_contains($argStr, ',')) {
-            $argStr = preg_replace('/(\s\w+:)/', ",$1", $argStr);
-        }
-        if (Macros::exists($macroName)) {
+//        if (!class_exists('PgFactory\\PageFactory\\PageFactory')) {
+//            return false;
+//        }
+//        if (Macros::exists($macroName)) {
+        if (class_exists('PgFactory\\PageFactory\\Macros') && Macros::exists($macroName)) {
+            // insert commas between arguments:
+            if (!str_contains($argStr, ',')) {
+                $argStr = preg_replace('/(\s\w+:)/', ",$1", $argStr);
+            }
             return Macros::execute($macroName, $argStr);
-        } else {
-            return false;
         }
+        return false;
     } // processByMacro
 
 
@@ -2275,12 +2271,12 @@ EOT;
     private function loadAbbreviations()
     {
         if (file_exists(MDP_ABBREVIATIONS_FILE)) {
-            $lines = explode("\n", getFile(MDP_ABBREVIATIONS_FILE));
+            $lines = explode("\n", MdPlusHelper::getFile(MDP_ABBREVIATIONS_FILE));
             foreach ($lines as $line) {
                 if (!$line) {
                     continue;
                 }
-                [$key, $value] = explodeTrim(':', $line);
+                [$key, $value] = MdPlusHelper::explodeTrim(':', $line);
                 self::$abbr[$key] = $value;
             }
         }
@@ -2307,7 +2303,7 @@ EOT;
             // for all instances, warp them into <abbr>:
             foreach (self::$abbr as $key => $value) {
                 if (str_contains($str, $key)) {
-                    $value = shieldStr("<abbr class='pfy-tippy' title='$value'>$key</abbr>", 'inline');
+                    $value = MdPlusHelper::shieldStr("<abbr class='pfy-tippy' title='$value'>$key</abbr>", 'inline');
                     $str = preg_replace("/\b$key\b/m", $value, $str);
                 }
             }

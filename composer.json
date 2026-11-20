@@ -16,6 +16,9 @@
     "config": {
         "allow-plugins": {
             "getkirby/composer-installer": true
+        },
+        "platform": {
+            "php": "8.3.30"
         }
     },
     "extra": {

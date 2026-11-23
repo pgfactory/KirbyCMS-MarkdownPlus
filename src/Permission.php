@@ -112,7 +112,7 @@ class Permission
     public static function checkPageAccessCode(string $accessCode = ''): mixed
     {
         $session = kirby()->session();
-        $page = page()->id();
+        $page = pfyPage()->id();
         $accessCodeKey = kirby()->option('pgfactory.markdownplus.accessCodeKey', 'a');
 
         // check whether there is an access code in url-args:
@@ -161,7 +161,7 @@ class Permission
         }
 
         // try to get "accessCode:" resp. "accessCodes:" from page (i.e. meta-file):
-        $pageAccessCodes = page()->accesscodes()->value() ?: page()->accesscode()->value();
+        $pageAccessCodes = pfyPage()->accesscodes()->value() ?: pfyPage()->accesscode()->value();
         $pageAccessCodes = Data::decode($pageAccessCodes, 'YAML');
 
         // check whether given code has been defined:
@@ -411,7 +411,7 @@ class Permission
     private static function reloadAgent(mixed $target = '', mixed $message = ''): void
     {
         if (!$target) {
-            $target = page()->url();
+            $target = pfyPage()->url();
         }
         if (is_string($message) && $message) {
             $session = kirby()->session();

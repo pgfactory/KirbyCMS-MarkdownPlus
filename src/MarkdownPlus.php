@@ -1539,7 +1539,7 @@ EOT;
         }
 
         if (!str_contains($src, '/')) {
-            $file = page() ? page()->file($src) : null;
+            $file = pfyPage() ? pfyPage()->file($src) : null;
             $src = $file ? $file->url() : $src;
         }
 
@@ -2071,7 +2071,7 @@ EOT;
     private function determineFilesToInclude(string $files, mixed $exclude = null): array
     {
         if (!str_contains($files, '/')) {
-            $files = page()->root() . '/' . $files;
+            $files = pfyPage()->root() . '/' . $files;
         }
         if (is_file($files)) {
             $dir = [$files];
@@ -2220,8 +2220,8 @@ EOT;
             if (str_contains($key, 'css')) {
                 $value = $this->handleSectionRefs($value);
             }
-            if (page() && method_exists(page(), $key) && isset(page()->$key()->value)) {
-                page()->$key()->value .= $value;
+            if (pfyPage() && method_exists(pfyPage(), $key) && isset(pfyPage()->$key()->value)) {
+                pfyPage()->$key()->value .= $value;
             }
             $str = $m[3];
         }

@@ -15,3 +15,19 @@ Kirby::plugin('pgfactory/markdownplus', [
     ]
 ]);
 
+
+/**
+ * Intercept kirby's page() helper, which may override result based on global variable $pfyOverridePage
+ * @param string|null $arg
+ * @return \Kirby\Cms\Page|mixed|null
+ */
+function pfyPage(string|null $arg = null)
+{
+    if (($arg === null) && class_exists('\\PgFactory\\PageFactory\\PageFactory')) {
+        $page = $GLOBALS['pfyOverridePage'] ?? false;
+        if ($page) {
+            return $page;
+        }
+    }
+    return page($arg);
+} // pfyPage

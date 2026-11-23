@@ -290,7 +290,7 @@ class MdPlusHelper
     public static function autoConvertLinks(string $str): string
     {
         if (self::$autoConvertLinks === null) {
-            self::$autoConvertLinks = (page()->autoConvertLinks()->value() === 'true') || kirby()->option('pgfactory.markdownplus.autoConvertLinks');
+            self::$autoConvertLinks = (pfyPage()->autoConvertLinks()->value() === 'true') || kirby()->option('pgfactory.markdownplus.autoConvertLinks');
         }
         if (!self::$autoConvertLinks) {
             return $str;

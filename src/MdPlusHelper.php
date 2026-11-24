@@ -615,7 +615,7 @@ class MdPlusHelper
     private static function renderMetaCmdsHelp(): string
     {
         return <<<EOT
-@@@@@@ .pfy-help.pfy-encapsulated
+@@@@@@ .pfy-help
 ## Syntax
 Syntax for Div-Blocks and Attribute Injection
 
